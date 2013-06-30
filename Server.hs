@@ -47,18 +47,23 @@ instance Eq Client where
 class Message m where 
   prefix      :: m -> String
   body        :: m -> String
-  sendMessage :: m -> Handle -> IO ()
-  sendMessage x h = hPutStr h $ (prefix x) ++ (body x)
+  sendMessage :: Handle -> m -> IO ()
+  sendMessage h x = hPutStr h $ (prefix x) ++ " " ++ (body x)
 
-data Ping = Ping
-instance Message Ping where
-  prefix _ = "PING"
-  body   _ = ""
+{-data Ping = Ping-}
+{-instance Message Ping where-}
+  {-prefix _ = "PING"-}
+  {-body   _ = ""-}
 
-data Text = Text String
-instance Message Text where
-  prefix _      = "TEXT"
-  body (Text t) = t
+data TimeMessage = TimeMessage String
+instance Message TimeMessage where
+  prefix _      = "TIME"
+  body (TimeMessage t) = t
+
+data NickMessage = NickMessage String
+instance Message NickMessage where
+  prefix _      = "NICK"
+  body (NickMessage t) = t
 
 -----------------------------------------
 
@@ -67,7 +72,6 @@ instance Message Text where
 -- a logger which may need to be extended
 logger :: String -> IO ()
 logger s = putStrLn $ "[[" ++ s ++ "]]"
-
 
 clientFromHandle :: Handle -> MVar Env -> IO (Maybe Client)
 clientFromHandle handle envar = do
@@ -106,14 +110,13 @@ getFreeId :: Env -> Int
 getFreeId e = let Just id = find (\x -> x `notElem` map (\c -> clientId c)(envClients e)) [0..] in id
 
 
-
 -- this is forked for every client
 handleClient :: Handle -> MVar Env -> IO ()
 handleClient handle envar = do
   line <- catch (fmap Right $ hGetLine handle) exceptionHandler
   Just c <- clientFromHandle handle envar
   case line of
-    Left s  -> disconnectClient >> logger ("client" ++ (show $ clientId c) ++ " disconnected")
+    Left _  -> disconnectClient >> logger ("client" ++ (show $ clientId c) ++ " disconnected")
     Right s -> handleMessage s handle envar >> handleClient handle envar
   return ()
   where
@@ -129,9 +132,18 @@ handleClient handle envar = do
 -- this is called for every message
 handleMessage :: String -> Handle -> MVar Env -> IO ()
 handleMessage message handle envar = do
-   Just c <- clientFromHandle handle envar
-   putStrLn $ "client" ++ (show $ clientId c) ++ " says: " ++ message
-
+  Just c <- clientFromHandle handle envar
+  putStrLn $ "client" ++ (show $ clientId c) ++ " says: " ++ message
+  case words message of
+    "TIME" : body -> handleTimeMessage body
+    _             -> logger "unknown packet"
+  where
+    handleTimeMessage _ = do 
+      now <- getCurrentTime
+      sendMessage handle $ TimeMessage (show now)
+    {-handleNickMessage_ = do -}
+      {-e <- readMVar envar-}
+      {-Just c <- clientFromHandle handle e-}
 
 -- handles input from keyboard
 inputHandler :: MVar Env -> IO ()
@@ -160,36 +172,6 @@ start = withSocketsDo $ do
   return ()
 
 
-  
-    
-
-
-
-  {-forever $ do-}
-    {-(handle,host,_port) <- accept listenSock-}
-    {-hSetBuffering handle NoBuffering-}
-    {-now <- getCurrentTime-}
-    {-let conn = Conn { connHandle = newHandle handle-}
-                    {-, connHostname = host-}
-                    {-, connServerName = configHostname config-}
-                    {-, connTime = now-}
-                    {-}-}
-    {-_ <- forkIO $ handleClient config handle envar conn-}
-    {-return ()-}
 
 main :: IO ()
 main = start
-
-{-main = catch (print $ 5 `div` 0) handler-}
-  {-where-}
-    {-handler :: SomeException -> IO ()-}
-    {-handler ex = putStrLn $ "Caught exception: " ++ show ex-}
-
-
-{-foo = do-}
-  {-putStrLn "hallo"-}
-  {-x <- isDone-}
-  {-case x of-}
-    {-True  -> return ()-}
-    {-False -> foo-}
-  {-where isDone = return True-}
