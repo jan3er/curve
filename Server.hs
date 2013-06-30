@@ -1,13 +1,25 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable #-}
 
-import Network
 import System.IO
 import Control.Concurrent
 import Control.Monad
 import Control.Exception
+import Control.Applicative
+
+import Data.Functor
 import Data.Time
 import Data.List
+import Data.Aeson
+import Data.Typeable
+import Data.Data
+import qualified Data.Text as T
+import qualified Data.Aeson.Generic as Generic
+import qualified Data.ByteString.Lazy as B
+{-import qualified Data.ByteString.Lazy.Internal as B-}
+
+import Network.Socket hiding (send, sendTo, recv, recvFrom)
+import Network.Socket.ByteString
 
 {-import Control.Applicative-}
 {-import Control.Concurrent-}
@@ -33,38 +45,47 @@ data Env = Env {
 
 data Client = Client {
       clientId       :: Int
-     ,clientHandle   :: Handle
+     ,clientSocket   :: Socket
      ,clientNick     :: String
      ,clientLastPong :: UTCTime
     } deriving Show
 instance Eq Client where
-  a == b = (clientHandle a) == (clientHandle b)
+  a == b = (clientId a) == (clientId b)
 
 
 
 -- various kinds of messages
 
-class Message m where 
-  prefix      :: m -> String
-  body        :: m -> String
-  sendMessage :: Handle -> m -> IO ()
-  sendMessage h x = hPutStr h $ (prefix x) ++ " " ++ (body x)
+{-class Message m where -}
+  {-prefix      :: m -> String-}
+  {-body        :: m -> String-}
+  {-sendMessage :: Handle -> m -> IO ()-}
+  {-sendMessage h x = hPutStr h $ (prefix x) ++ " " ++ (body x)-}
 
 {-data Ping = Ping-}
 {-instance Message Ping where-}
   {-prefix _ = "PING"-}
   {-body   _ = ""-}
 
-data TimeMessage = TimeMessage String
-instance Message TimeMessage where
-  prefix _      = "TIME"
-  body (TimeMessage t) = t
+{-class Message m where-}
+  {-decodeFoo :: B.ByteString -> Maybe m-}
+  {-decodeFoo message = Generic.decode message :: Maybe m-}
 
-data NickMessage = NickMessage String
-instance Message NickMessage where
-  prefix _      = "NICK"
-  body (NickMessage t) = t
+data TimeMessage = TimeMessage {
+  timeMessageTime :: UTCTime
+} deriving (Data,Typeable,Show)
+{-instance Message TimeMessage-}
 
+data TextMessage = TextMessage {
+  textMessagetext :: String
+} deriving (Data,Typeable,Show)
+{-instance Message TextMessage-}
+
+
+data Person = Person
+     { personName :: String
+     , personAge  :: Int
+     } deriving (Data,Typeable,Show)
 -----------------------------------------
 
 -- HELPER FUNCTIONS
@@ -73,74 +94,128 @@ instance Message NickMessage where
 logger :: String -> IO ()
 logger s = putStrLn $ "[[" ++ s ++ "]]"
 
-clientFromHandle :: Handle -> MVar Env -> IO (Maybe Client)
-clientFromHandle handle envar = do
+clientFromSocket :: Socket -> MVar Env -> IO (Maybe Client)
+clientFromSocket sock envar = do
   e <- readMVar envar
-  return $ find (\c -> clientHandle c == handle) (envClients e)
+  return $ find (\c -> clientSocket c == sock) (envClients e)
    
 
 ---------------------------------------
+
+
+-- the server entry point
+start :: IO ()
+start = withSocketsDo $ do
+  hSetBuffering stdout LineBuffering
+  envar <- newMVar Env { envClients   = []
+                        ,envAcceptNew = True }
+  _ <- forkIO $ inputHandler envar
+
+  addrinfos <- getAddrInfo
+               (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
+               Nothing (Just "1339")
+  let serveraddr = head addrinfos
+  listenSock <- socket (addrFamily serveraddr) Stream defaultProtocol
+  bindSocket listenSock (addrAddress serveraddr)
+  listen listenSock 5
+  listenForClients listenSock envar
+  return ()
+
 
 -- is running forever listening for new clients
 -- if a new connection is accepted, it is added to envar client array
 -- and a new clientHandler is forked
 listenForClients :: Socket -> MVar Env -> IO ()
 listenForClients listenSock envar = forever $ do 
-  (handle, _, _) <- accept listenSock
+  (conn, _) <- accept listenSock
   x <- readMVar envar 
   case envAcceptNew x of
-    False -> declineNewClient handle
-    True  -> acceptNewClient  handle envar
+    False -> declineNewClient conn
+    True  -> acceptNewClient  conn envar
   where 
-    declineNewClient handle = do
+    declineNewClient conn = do
       logger "client declined"
-      hClose handle
-    acceptNewClient handle envar = do
-      _ <- forkIO $ handleClient handle envar
+      sClose conn
+    acceptNewClient conn envar = do
       e <- takeMVar envar
       now <- getCurrentTime
-      let client = Client { clientId = getFreeId e
-                           ,clientHandle = handle
-                           ,clientNick = "nick" 
-                           ,clientLastPong = now } in
-        putMVar envar e { envClients = client : (envClients e) }
-        >> logger ("client" ++ (show $ clientId client) ++ " accepted")
+      let client = Client {clientId       = getFreeId e,
+                           clientSocket   = conn,
+                           clientNick     = "nick", 
+                           clientLastPong = now }
+      putMVar envar e { envClients = client : (envClients e) }
+      logger ("client" ++ (show $ clientId client) ++ " accepted")
+      _ <- forkIO $ handleClient conn envar
+      return ()
 
 getFreeId :: Env -> Int
 getFreeId e = let Just id = find (\x -> x `notElem` map (\c -> clientId c)(envClients e)) [0..] in id
 
 
 -- this is forked for every client
-handleClient :: Handle -> MVar Env -> IO ()
-handleClient handle envar = do
-  line <- catch (fmap Right $ hGetLine handle) exceptionHandler
-  Just c <- clientFromHandle handle envar
-  case line of
-    Left _  -> disconnectClient >> logger ("client" ++ (show $ clientId c) ++ " disconnected")
-    Right s -> handleMessage s handle envar >> handleClient handle envar
-  return ()
-  where
-    exceptionHandler :: SomeException -> IO (Either String String)
-    exceptionHandler ex = return $ Left $ "Caught exception: " ++ show ex
+handleClient :: Socket -> MVar Env -> IO ()
+handleClient sock envar = do
+    message <- recv sock 100000 
+    Just c <- clientFromSocket sock envar
+    let lazy = B.fromChunks [message] :: B.ByteString
+    let stripped = lazy
+    if B.null lazy
+      then do disconnectClient
+              logger ("client" ++ (show $ clientId c) ++ " disconnected")
+      else do handleMessage sock envar lazy
+              handleClient sock envar
+    where
     disconnectClient :: IO ()
     disconnectClient = do
-      Just c <- clientFromHandle handle envar
+      Just c <- clientFromSocket sock envar
       e <- takeMVar envar
       putMVar envar e { envClients = delete c (envClients e) }
+      sClose sock
+
+  {-Just c <- clientFromSocket sock envar-}
+  {-case line of-}
+    {-Left _  -> disconnectClient >> logger ("client" ++ (show $ clientId c) ++ " disconnected")-}
+    {-Right s -> handleMessage s handle envar >> handleClient handle envar-}
+  {-return ()-}
+  {-where-}
+    {-exceptionHandler :: SomeException -> IO (Either String String)-}
+    {-exceptionHandler ex = return $ Left $ "Caught exception: " ++ show ex-}
+    {-disconnectClient :: IO ()-}
+    {-disconnectClient = do-}
+      {-Just c <- clientFromSocket handle envar-}
+      {-e <- takeMVar envar-}
+      {-putMVar envar e { envClients = delete c (envClients e) }-}
 
 
 -- this is called for every message
-handleMessage :: String -> Handle -> MVar Env -> IO ()
-handleMessage message handle envar = do
-  Just c <- clientFromHandle handle envar
-  putStrLn $ "client" ++ (show $ clientId c) ++ " says: " ++ message
-  case words message of
-    "TIME" : body -> handleTimeMessage body
-    _             -> logger "unknown packet"
-  where
-    handleTimeMessage _ = do 
-      now <- getCurrentTime
-      sendMessage handle $ TimeMessage (show now)
+handleMessage :: Socket -> MVar Env -> B.ByteString -> IO ()
+handleMessage sock envar message = do
+  putStrLn $ show message
+  {-let decoded = (Generic.decode message :: Maybe TextMessage,-}
+                 {-Generic.decode message :: Maybe TimeMessage)-}
+  {-printMessage $ fst decoded-}
+  {-printMessage $ snd decoded-}
+  {-where-}
+    {-printMessage :: Maybe (Message m)-> IO ()-}
+    {-printMessage d = case d of-}
+      {-Just (TimeMessage m) -> putStrLn $ show m-}
+      {-Just (TextMessage m) -> putStrLn $ show m-}
+      {-_                    -> putStrLn "could not match"-}
+
+  {-now <- getCurrentTime-}
+  {-let t = TimeMessage { timeMessageTime = now }-}
+  {-let tjson = Generic.encode t-}
+  {-putStrLn $ show tjson-}
+
+  {-Just c <- clientFromSocket sock envar-}
+  {-putStrLn $ "client" ++ (show $ clientId c) ++ " says: " ++ (show message)-}
+  {-case words message of-}
+    {-"TIME" : body -> handleTimeMessage body-}
+    {-_             -> logger "unknown packet"-}
+  {-where-}
+    {-handleTimeMessage _ = do-}
+      {-now <- getCurrentTime-}
+      {-sendMessage handle $ TimeMessage (show now)-}
     {-handleNickMessage_ = do -}
       {-e <- readMVar envar-}
       {-Just c <- clientFromHandle handle e-}
@@ -158,18 +233,6 @@ inputHandler envar = forever $ do
     x <- takeMVar envar
     putMVar envar x { envAcceptNew = not $ envAcceptNew x }
 
-
-
--- the server entry point
-start :: IO ()
-start = withSocketsDo $ do
-  hSetBuffering stdout LineBuffering
-  listenSock <- listenOn $ PortNumber 1337
-  envar <- newMVar Env { envClients   = []
-                        ,envAcceptNew = True }
-  _ <- forkIO $ inputHandler envar
-  listenForClients listenSock envar
-  return ()
 
 
 
