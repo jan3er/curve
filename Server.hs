@@ -1,21 +1,22 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 
 import System.IO
 import Control.Concurrent
 import Control.Monad
+import Control.Monad.Loops
 import Control.Exception
 import Control.Applicative
 
 import Data.Functor
 import Data.Time
 import Data.List
-import Data.Aeson
+import Data.Aeson.Generic
 import Data.Typeable
 import Data.Data
 import qualified Data.Text as T
-import qualified Data.Aeson.Generic as Generic
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 {-import qualified Data.ByteString.Lazy.Internal as B-}
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
@@ -68,24 +69,21 @@ instance Eq Client where
   {-body   _ = ""-}
 
 {-class Message m where-}
-  {-decodeFoo :: B.ByteString -> Maybe m-}
-  {-decodeFoo message = Generic.decode message :: Maybe m-}
+  {-foo :: m -> String-}
+{-data WrapMessage = forall m. Maybe (Message m) => WrapMessage m-}
 
-data TimeMessage = TimeMessage {
-  timeMessageTime :: UTCTime
-} deriving (Data,Typeable,Show)
-{-instance Message TimeMessage-}
 
-data TextMessage = TextMessage {
-  textMessagetext :: String
-} deriving (Data,Typeable,Show)
-{-instance Message TextMessage-}
+
+
+data Message = TextMessage { mTEXT :: String } 
+             | TimeMessage { mTIME :: UTCTime } deriving (Data, Typeable, Show)
 
 
 data Person = Person
      { personName :: String
      , personAge  :: Int
      } deriving (Data,Typeable,Show)
+
 -----------------------------------------
 
 -- HELPER FUNCTIONS
@@ -98,6 +96,12 @@ clientFromSocket :: Socket -> MVar Env -> IO (Maybe Client)
 clientFromSocket sock envar = do
   e <- readMVar envar
   return $ find (\c -> clientSocket c == sock) (envClients e)
+
+toStrict :: BL.ByteString -> B.ByteString
+toStrict = B.concat . BL.toChunks
+
+toLazy :: B.ByteString -> BL.ByteString
+toLazy s = BL.fromChunks [s]
    
 
 ---------------------------------------
@@ -113,7 +117,7 @@ start = withSocketsDo $ do
 
   addrinfos <- getAddrInfo
                (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-               Nothing (Just "1339")
+               Nothing (Just "1341")
   let serveraddr = head addrinfos
   listenSock <- socket (addrFamily serveraddr) Stream defaultProtocol
   bindSocket listenSock (addrAddress serveraddr)
@@ -157,12 +161,10 @@ handleClient :: Socket -> MVar Env -> IO ()
 handleClient sock envar = do
     message <- recv sock 100000 
     Just c <- clientFromSocket sock envar
-    let lazy = B.fromChunks [message] :: B.ByteString
-    let stripped = lazy
-    if B.null lazy
+    if B.null message
       then do disconnectClient
               logger ("client" ++ (show $ clientId c) ++ " disconnected")
-      else do handleMessage sock envar lazy
+      else do handleMessage sock envar message
               handleClient sock envar
     where
     disconnectClient :: IO ()
@@ -190,9 +192,37 @@ handleClient sock envar = do
 -- this is called for every message
 handleMessage :: Socket -> MVar Env -> B.ByteString -> IO ()
 handleMessage sock envar message = do
-  putStrLn $ show message
-  {-let decoded = (Generic.decode message :: Maybe TextMessage,-}
-                 {-Generic.decode message :: Maybe TimeMessage)-}
+  case (decode (toLazy message) :: Maybe Message) of 
+    Just m -> processMessage m
+    Nothing -> logger $ "unknown packet: " ++ (show message)
+  where 
+    processMessage (TimeMessage m) = do
+      now <- getCurrentTime
+      let m = encode $ TimeMessage { mTIME = now }
+      send sock (toStrict m)
+      putStrLn "time!"
+
+    processMessage (TextMessage m) = do
+      now <- getCurrentTime
+      let m = encode $ TextMessage { mTEXT = "yay" }
+      send sock (toStrict m)
+      putStrLn "text!"
+
+  {-putStrLn $ show message-}
+  {-now <- getCurrentTime-}
+  {-let mtext = encode $ TextMessage "hallo"-}
+  {-let mtime = encode $ TimeMessage now-}
+  {-putStrLn $ show mtext-}
+  {-putStrLn $ show mtime-}
+  {-let decodeText = Generic.decode message :: Maybe TextMessage-}
+  {-let decodeTime = Generic.decode message :: Maybe TimeMessage-}
+  {-let foo = [decodeText, decodeTime]-}
+  {-whileM_ (return True) (putStrLn "l")-}
+  {-where callCorrectMessage :: B.ByteString ->-}
+
+  {-putStrLn $ bam decodeText-}
+
+
   {-printMessage $ fst decoded-}
   {-printMessage $ snd decoded-}
   {-where-}
