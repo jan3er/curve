@@ -5,25 +5,18 @@ module Curve.Server where
 import           System.IO
 import           Control.Concurrent
 import           Control.Monad
-import           Control.Monad.Loops
-import           Control.Exception
-import           Control.Applicative
-
-import           Data.Functor
 import           Data.Time
 import           Data.List
-import           Data.Aeson.Generic
-import           Data.Typeable
-import           Data.Data
-import qualified Data.ByteString            as B
-import qualified Data.ByteString.Lazy       as BL
+import           Network.Socket
 
-import Network.Socket hiding (send, sendTo, recv, recvFrom)
-import Network.Socket.ByteString
+import           Curve.Types
+import           Curve.Misc
+import           Curve.Network
 
-import Curve.Types
-import Curve.Misc
-
+{-import           Control.Monad.Loops-}
+{-import           Control.Exception-}
+{-import           Control.Applicative-}
+{-import           Data.Functor()-}
 
 
 -- handles input from keyboard
@@ -51,7 +44,7 @@ start = withSocketsDo $ do
 
   addrinfos <- getAddrInfo
                (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-               Nothing (Just "1341")
+               Nothing (Just "1342")
   let serveraddr = head addrinfos
   listenSock <- socket (addrFamily serveraddr) Stream defaultProtocol
   bindSocket listenSock (addrAddress serveraddr)
@@ -91,17 +84,16 @@ listenForClients listenSock envar = forever $ do
         getFreeId e = let Just id = find (\x -> x `notElem` map (\c -> clientId c)(envClients e)) [0..] in id
 
 
-
 -- this is forked for every client
 handleClient :: Socket -> MVar Env -> IO ()
 handleClient sock envar = do
-    message <- recv sock 100000 
+    message <- recvMessage sock
     Just c <- clientFromSocket sock envar
-    if B.null message
-      then do disconnectClient
-              logger ("client" ++ (show $ clientId c) ++ " disconnected")
-      else do handleMessage sock envar message
-              handleClient sock envar
+    case message of
+      Just m  -> do handleMessage sock envar m
+                    handleClient sock envar
+      Nothing -> do disconnectClient
+                    logger ("client" ++ (show $ clientId c) ++ " disconnected")
     where
     disconnectClient :: IO ()
     disconnectClient = do
@@ -113,19 +105,13 @@ handleClient sock envar = do
 
 
 -- this is called for every message
-handleMessage :: Socket -> MVar Env -> B.ByteString -> IO ()
-handleMessage sock envar message = do
-  case (decode (toLazy message) :: Maybe Message) of 
-    Just m -> processMessage m
-    Nothing -> logger $ "unknown packet: " ++ (show message)
-  where 
-    processMessage (TimeMessage _) = do
-      now <- getCurrentTime
-      let m = encode $ TimeMessage { mTIME = now }
-      _ <- send sock (toStrict m)
-      putStrLn "time!"
+handleMessage :: Socket -> MVar Env -> Message -> IO ()
+handleMessage sock envar message = case message of
 
-    processMessage (TextMessage _) = do
-      let m = encode $ TextMessage { mTEXT = "yay" }
-      _ <- send sock (toStrict m)
-      putStrLn "text!"
+    TimeMessage _ -> do
+      now <- getCurrentTime
+      sendMessage sock TimeMessage { mTIME = now }
+      logger "TimeMessage!"
+
+    UnknownMessage -> do
+      logger "received unknown message"
