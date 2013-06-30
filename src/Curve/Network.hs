@@ -17,6 +17,7 @@ import           Network.Socket.ByteString
 data Message = TimeMessage { mTIME :: UTCTime }
              | UnknownMessage deriving (Data, Typeable, Show)
 
+-- TODO make creators for server/client sockets
 
 -- receive a message over socket
 recvMessage :: Socket -> IO (Maybe Message)

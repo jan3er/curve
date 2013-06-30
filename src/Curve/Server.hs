@@ -18,7 +18,6 @@ import           Curve.Network
 {-import           Control.Applicative-}
 {-import           Data.Functor()-}
 
-
 -- handles input from keyboard
 inputHandler :: MVar Env -> IO ()
 inputHandler envar = forever $ do
@@ -44,7 +43,8 @@ start = withSocketsDo $ do
 
   addrinfos <- getAddrInfo
                (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-               Nothing (Just "1342")
+               Nothing 
+               (Just "1344")
   let serveraddr = head addrinfos
   listenSock <- socket (addrFamily serveraddr) Stream defaultProtocol
   bindSocket listenSock (addrAddress serveraddr)

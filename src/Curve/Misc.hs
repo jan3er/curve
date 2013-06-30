@@ -10,7 +10,7 @@ import Curve.Types
 
 -- a logger which may need to be extended
 logger :: String -> IO ()
-logger s = putStrLn $ "[[" ++ s ++ "]]"
+logger s = putStrLn $ "[[ " ++ s ++ " ]]"
 
 -- get the envars client entry for a given socket
 clientFromSocket :: Socket -> MVar Env -> IO (Maybe Client)
