@@ -1,7 +1,7 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 
-module Curve.Types where
+module Curve.Server.Types where
 
 import Data.Time
 import Network.Socket

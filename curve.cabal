@@ -12,11 +12,27 @@ cabal-version:       >=1.8
 executable CurveServer
   hs-source-dirs:      src
   main-is:             CurveServer.hs 
-  other-modules:       Curve.Server 
-  build-depends:       base ==4.6.*, monad-loops ==0.4.*, time ==1.4.*, aeson ==0.6.*, bytestring ==0.10.*, network ==2.4.*
+
+  other-modules:       Curve.Server.Server 
+
+  build-depends:       base ==4.6.*,
+                       monad-loops ==0.4.*,
+                       time ==1.4.*,
+                       aeson ==0.6.*,
+                       bytestring ==0.10.*,
+                       network ==2.4.*
   
 executable CurveClient
   hs-source-dirs:      src
   main-is:             CurveClient.hs 
-  other-modules:       Curve.Client
-  build-depends:       base ==4.6.*, monad-loops ==0.4.*, time ==1.4.*, aeson ==0.6.*, bytestring ==0.10.*, network ==2.4.*
+
+  other-modules:       Curve.Client.Client
+
+  build-depends:       base ==4.6.*, 
+                       monad-loops ==0.4.*,
+                       time ==1.4.*,
+                       aeson ==0.6.*,
+                       bytestring ==0.10.*,
+                       network ==2.4.*,
+                       GLUT,
+                       OpenGL

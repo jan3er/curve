@@ -1,6 +1,6 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
-module Curve.Server where
+module Curve.Server.Server where
 
 import           System.IO
 import           Control.Concurrent
@@ -9,9 +9,9 @@ import           Data.Time
 import           Data.List
 import           Network.Socket
 
-import           Curve.Types
-import           Curve.Misc
-import           Curve.Network
+import           Curve.Server.Types
+import           Curve.Server.Misc
+import           Curve.Network.Network
 
 {-import           Control.Monad.Loops-}
 {-import           Control.Exception-}

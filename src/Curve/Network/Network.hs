@@ -1,6 +1,10 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
-module Curve.Network where
+module Curve.Network.Network (
+  module Curve.Network.Types,
+  sendMessage,
+  recvMessage
+  ) where
 
 import           Data.Time
 import           Data.Aeson.Generic
@@ -13,11 +17,10 @@ import qualified Data.ByteString.Lazy       as BL
 import           Network.Socket hiding (send, sendTo, recv, recvFrom)
 import           Network.Socket.ByteString
 
--- represent messages
-data Message = TimeMessage { mTIME :: UTCTime }
-             | UnknownMessage deriving (Data, Typeable, Show)
+import           Curve.Network.Types
 
--- TODO make creators for server/client sockets
+
+-- TODO? make creators for server/client sockets
 
 -- receive a message over socket
 recvMessage :: Socket -> IO (Maybe Message)
