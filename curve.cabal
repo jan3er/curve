@@ -20,7 +20,10 @@ executable CurveServer
                        time ==1.4.*,
                        aeson ==0.6.*,
                        bytestring ==0.10.*,
-                       network ==2.4.*
+                       network ==2.4.*,
+                       fclabels,
+                       pretty-show,
+                       containers
   
 executable CurveClient
   hs-source-dirs:      src
@@ -34,5 +37,8 @@ executable CurveClient
                        aeson ==0.6.*,
                        bytestring ==0.10.*,
                        network ==2.4.*,
+                       fclabels,
+                       pretty-show,
+                       containers,
                        GLUT,
                        OpenGL

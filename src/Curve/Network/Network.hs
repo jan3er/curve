@@ -2,8 +2,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 module Curve.Network.Network (
   module Curve.Network.Types,
-  sendMessage,
-  recvMessage
+  sendMsg,
+  recvMsg
   ) where
 
 import           Data.Time
@@ -17,29 +17,31 @@ import qualified Data.ByteString.Lazy       as BL
 import           Network.Socket hiding (send, sendTo, recv, recvFrom)
 import           Network.Socket.ByteString
 
-import           Curve.Network.Types
+import           Curve.Network.Types        
 
 
 -- TODO? make creators for server/client sockets
 
 -- receive a message over socket
-recvMessage :: Socket -> IO (Maybe Message)
-recvMessage sock = do
+-- returns nothing if connection is dead
+-- returns Just Message otherwise
+recvMsg :: Socket -> IO (Maybe Msg)
+recvMsg sock = do
   line <- recv sock 10000
   if B.null line
     then return Nothing
-    else return $ Just (decodeMessage line)
+    else return $ Just (decodeMsg line)
   where
-    decodeMessage line = 
-      case decode (BL.fromChunks [line]) :: Maybe Message of
-        Nothing -> UnknownMessage
+    decodeMsg line = 
+      case decode (BL.fromChunks [line]) :: Maybe Msg of
+        Nothing -> MsgUnknown
         Just x  -> x
 
 
--- send a message over socket
-sendMessage :: Socket -> Message -> IO ()
-sendMessage sock message = do
-  let line = encode message :: BL.ByteString
+-- send a msg over socket
+sendMsg :: Socket -> Msg -> IO ()
+sendMsg sock msg = do
+  let line = encode msg :: BL.ByteString
   _ <- send sock (B.concat $ BL.toChunks line)
   return ()
 

@@ -23,7 +23,7 @@ start = do
   sock <- socket (addrFamily serverAddr) Stream defaultProtocol
   connect sock (addrAddress serverAddr)
   now <- getCurrentTime
-  sendMessage sock TimeMessage { mTIME = now }
-  m <- recvMessage sock
-  putStrLn $ show $ m
+  {-sendMessage sock TimeMessage { mTIME = now }-}
+  {-m <- recvMessage sock-}
+  {-putStrLn $ show $ m-}
   putStrLn "client"
