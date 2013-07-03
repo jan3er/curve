@@ -57,10 +57,9 @@ addClient pm sock nick time =
   in (Map.insert id (player, Just client) pm, id)
 
 -- mark client with this id as dead
-killClient :: PlayerMap -> Int -> PlayerMap
-killClient pm id = Map.alter f id pm
+killClient :: Int -> PlayerMap -> PlayerMap
+killClient id pm = Map.alter f id pm
   where 
-    f Nothing   = Nothing
-    f (Just p)  = Just (fst p, g (snd p))
-    g Nothing   = Nothing
-    g (Just c)  = Just $ c -- TODO
+    f Nothing            = Nothing
+    f (Just(p, Nothing)) = Just(p, Nothing) 
+    f (Just(p, Just c))  = Just(p, Just (set (cl_isAlive . scl_client) False c))

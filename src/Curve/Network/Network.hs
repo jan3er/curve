@@ -39,8 +39,8 @@ recvMsg sock = do
 
 
 -- send a msg over socket
-sendMsg :: Socket -> Msg -> IO ()
-sendMsg sock msg = do
+sendMsg :: Msg -> Socket -> IO ()
+sendMsg msg sock = do
   let line = encode msg :: BL.ByteString
   _ <- send sock (B.concat $ BL.toChunks line)
   return ()

@@ -7,6 +7,8 @@ import           Control.Concurrent
 import           Control.Monad
 import           Data.Time
 import           Data.List
+import           Data.Maybe
+import qualified Data.Map.Lazy as Map
 import           Network.Socket
 import           Text.Show.Pretty
 
@@ -32,10 +34,8 @@ inputHandler envar = forever $ do
     "env"   -> readMVar envar >>= putStrLn . show
     _         -> putStrLn "unknown"
   where 
-    toggleAcceptNew  = do
-    env <- takeMVar envar
-    {-putMVar envar x { envAcceptNew = not $ envAcceptNew x }-}
-    putMVar envar $ set env_acceptNew False env
+    toggleAcceptNew = takeMVar envar >>= (\x -> putMVar envar (modify env_acceptNew not x))
+
 
 
 
@@ -59,6 +59,7 @@ start = withSocketsDo $ do
 
 
 
+
 -- is running forever listening for new clients
 -- if a new connection is accepted, it is added to envar client array
 -- and a new clientHandler is forked
@@ -75,17 +76,54 @@ listenForClients listenSock envar = forever $ do
       {-sendMsg sock (CMsgHello "jan") -- expected here-}
       msg <- recvMsg sock
       case msg of
+        Nothing -> return () 
+        --got hello msg
         Just (CMsgHello nick) -> do
-          env <- takeMVar envar
+
+          --take envar and add client to env
+          envOld <- takeMVar envar
           now <- getCurrentTime
-          let (pm, id) = addClient (get env_playerMap env) sock nick now 
-          putMVar envar $ set env_playerMap pm env
+          let (pm, id) = addClient (get env_playerMap envOld) sock nick now 
+          let env = set env_playerMap pm envOld
+
+          --broadcast changed world
+          let socks = mapMaybe 
+                (\(_, (_, c))
+                   -> if isNothing c 
+                      then Nothing 
+                      else Just (get scl_socket (fromJust c)))
+                (Map.toList $ get env_playerMap env)
+          let world = map 
+                (\(id, (_, c)) 
+                  -> if isNothing c 
+                     then (id, Nothing) 
+                     else (id, Just $ get scl_client (fromJust c)))
+                (Map.toList $ get env_playerMap env)
+          mapM (sendMsg (SMsgWorld world)) socks
+
+          --put envar back and start handler
+          putMVar envar env
           handleClient envar id
-        _ -> return () 
       putStrLn "end of connection"
 
+
+
+
 handleClient :: MVar Env -> Int -> IO ()
-handleClient envar id = putStrLn "this is TODO next"
+handleClient envar id = do
+  env <- readMVar envar
+  let Just (_, Just client) = Map.lookup id (get env_playerMap env)
+  msg <- recvMsg $ get scl_socket client
+  case msg of
+    --connection closed? -> kill or delete client
+    Nothing -> do env <- takeMVar envar 
+                  let f = if get env_acceptNew env then Map.delete else killClient
+                  putMVar envar $ modify env_playerMap (f id) env
+                  --TODO close sock
+
+    -- TODO
+    Just _  -> do putStrLn "yay, ein packet"
+                  handleClient envar id
 
 
 -- this is forked for every client
