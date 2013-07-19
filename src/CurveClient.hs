@@ -2,22 +2,23 @@
 module Main where
 import Curve.Client.Client (start)
 
-{-main :: IO ()-}
-{-main = start-}
 
 
 
 
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLUT
- 
+
 main :: IO ()
-main = do
-  (progname, _) <- getArgsAndInitialize
-  createWindow "Hello World"
-  displayCallback $= display
-  passiveMotionCallback $= Just mouseMotion
-  mainLoop
+main = start
+ 
+{-main :: IO ()-}
+{-main = do-}
+  {-(progname, _) <- getArgsAndInitialize-}
+  {-createWindow "Hello World"-}
+  {-displayCallback $= display-}
+  {-passiveMotionCallback $= Just mouseMotion-}
+  {-mainLoop-}
  
 display :: IO ()
 display = do

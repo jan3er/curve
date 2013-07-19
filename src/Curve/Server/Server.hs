@@ -76,16 +76,12 @@ listenForClients listenSock envar = forever $ do
       {-sendMsg sock (CMsgHello "jan") -- expected here-}
       msg <- recvMsg sock
       case msg of
-        Nothing -> return () 
-        --got hello msg
         Just (CMsgHello nick) -> do
-
           --take envar and add client to env
           envOld <- takeMVar envar
           now <- getCurrentTime
           let (pm, id) = addClient (get env_playerMap envOld) sock nick now 
           let env = set env_playerMap pm envOld
-
           --broadcast changed world
           let socks = mapMaybe 
                 (\(_, (_, c))
@@ -104,6 +100,9 @@ listenForClients listenSock envar = forever $ do
           --put envar back and start handler
           putMVar envar env
           handleClient envar id
+
+        _ -> putStrLn $ ( show msg )
+
       putStrLn "end of connection"
 
 
@@ -122,8 +121,8 @@ handleClient envar id = do
                   --TODO close sock
 
     -- TODO
-    Just _  -> do putStrLn "yay, ein packet"
-                  handleClient envar id
+    Just msg  -> do handleMsg envar id msg
+                    handleClient envar id
 
 
 -- this is forked for every client
@@ -143,9 +142,11 @@ handleClient envar id = do
                     {-logger "connection closed"-}
 
 
--- this is called for every message
-handleMsg :: Socket -> MVar Env -> Msg -> IO ()
+-- this is called for every incomming message
+handleMsg :: MVar Env -> Int -> Msg -> IO ()
 handleMsg sock envar msg = case msg of
+    
+    CMsgPaddle (x, y) -> putStrLn $ (show x) ++ " " ++ (show y)
 
     {-TimeMsg _ -> do-}
       {-now <- getCurrentTime-}

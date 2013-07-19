@@ -22,8 +22,9 @@ data Client = Client {
 $(mkLabels [''Client])
 
 -- represent messages
-data Msg = CMsgHello { _msg_nick    :: String }
-         | SMsgWorld { _msg_clients :: [(Int, Maybe Client)] }
+data Msg = CMsgHello  { _msg_nick    :: String }
+         | CMsgPaddle { _msg_pos     :: (Float, Float) }
+         | SMsgWorld  { _msg_clients :: [(Int, Maybe Client)] }
          |  MsgUnknown deriving (Data, Typeable, Show)
 $(mkLabels [''Msg])
 
