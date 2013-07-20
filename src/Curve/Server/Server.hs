@@ -30,11 +30,16 @@ inputHandler :: MVar Env -> IO ()
 inputHandler envar = forever $ do
   line <- getLine
   case line of
-    "toggle"  -> putStrLn "toggling acceptNew" >> toggleAcceptNew
-    "env"   -> readMVar envar >>= putStrLn . show
+    "toggle"  -> putStrLn "toggling isRunning" >> toggleIsRunning
+    "env"     -> readMVar envar >>= putStrLn . show
     _         -> putStrLn "unknown"
   where 
-    toggleAcceptNew = takeMVar envar >>= (\x -> putMVar envar (modify env_acceptNew not x))
+    toggleIsRunning = do 
+      env <- takeMVar envar
+      let modifiedEnv = modify env_isRunning not env 
+      broadcastWorld modifiedEnv
+      putMVar envar modifiedEnv
+
 
 
 
@@ -67,9 +72,9 @@ listenForClients :: Socket -> MVar Env -> IO ()
 listenForClients listenSock envar = forever $ do 
   (conn, _) <- accept listenSock
   env <- readMVar envar 
-  case get env_acceptNew env of
-    False -> logger "conection refused" >> sClose conn
-    True  -> forkIO (acceptNewClient conn) >> return ()
+  case get env_isRunning env of
+    True  -> logger "conection refused" >> sClose conn
+    False -> forkIO (acceptNewClient conn) >> return ()
   where 
     acceptNewClient sock = do 
       putStrLn "connection accepted"
@@ -83,20 +88,7 @@ listenForClients listenSock envar = forever $ do
           let (pm, id) = addClient (get env_playerMap envOld) sock nick now 
           let env = set env_playerMap pm envOld
           --broadcast changed world
-          let socks = mapMaybe 
-                (\(_, (_, c))
-                   -> if isNothing c 
-                      then Nothing 
-                      else Just (get scl_socket (fromJust c)))
-                (Map.toList $ get env_playerMap env)
-          let world = map 
-                (\(id, (_, c)) 
-                  -> if isNothing c 
-                     then (id, Nothing) 
-                     else (id, Just $ get scl_client (fromJust c)))
-                (Map.toList $ get env_playerMap env)
-          mapM (sendMsg (SMsgWorld world)) socks
-
+          broadcastWorld env
           --put envar back and start handler
           putMVar envar env
           handleClient envar id
@@ -105,6 +97,23 @@ listenForClients listenSock envar = forever $ do
 
       putStrLn "end of connection"
 
+-- boadcast a SMsgWorld to all clients
+broadcastWorld :: Env -> IO ()
+broadcastWorld env = do
+  let socks = mapMaybe 
+        (\(_, (_, c))
+           -> if isNothing c 
+              then Nothing 
+              else Just (get scl_socket (fromJust c)))
+        (Map.toList $ get env_playerMap env)
+  let clients = map 
+        (\(id, (_, c)) 
+          -> if isNothing c 
+             then (id, Nothing) 
+             else (id, Just $ get scl_client (fromJust c)))
+        (Map.toList $ get env_playerMap env)
+  mapM (sendMsg (SMsgWorld { _msg_clients   = clients, _msg_isRunning = get env_isRunning env })) socks
+  return ()
 
 
 
@@ -116,7 +125,7 @@ handleClient envar id = do
   case msg of
     --connection closed? -> kill or delete client
     Nothing -> do env <- takeMVar envar 
-                  let f = if get env_acceptNew env then Map.delete else killClient
+                  let f = if get env_isRunning env then killClient else Map.delete
                   putMVar envar $ modify env_playerMap (f id) env
                   --TODO close sock
 

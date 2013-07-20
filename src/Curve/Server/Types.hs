@@ -32,7 +32,7 @@ type PlayerMap = Map.Map Int (Player, Maybe SClient)
 -- holds the enviornments state
 data Env = Env {
   _env_playerMap   :: PlayerMap,
-  _env_acceptNew   :: Bool
+  _env_isRunning   :: Bool
 } deriving Show
 $(mkLabels [''Env])
 
@@ -41,7 +41,7 @@ $(mkLabels [''Env])
 -- creates a new clean env
 newEnv :: Env
 newEnv = Env { _env_playerMap = Map.empty,
-               _env_acceptNew = True }
+               _env_isRunning = False }
             
 -- add a new client-player-pair to the pm, returns id of new entry
 addClient :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)

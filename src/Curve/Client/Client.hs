@@ -23,30 +23,33 @@ import           Curve.Game.Types
 
 start :: IO ()
 start = do
+  --connect to server
   addrInfo <- getAddrInfo Nothing 
                         (Just "127.0.0.1") 
                         (Just "1337")
   let serverAddr = head addrInfo
   sock <- socket (addrFamily serverAddr) Stream defaultProtocol
-  envar <- newMVar $ Env { _env_playerMap = Map.empty,
-                           _env_socket    = Just sock }
   connect sock (addrAddress serverAddr)
+  --create env
+  envar <- newMVar $ Env { _env_playerMap = Map.empty,
+                           _env_socket    = Just sock,
+                           _env_isRunning = False }
+  --start glut
+  _ <- forkOS $ do
+    (progname, _) <- getArgsAndInitialize
+    createWindow "Hello World"
+    displayCallback $= display
+    passiveMotionCallback $= Just (mouseMotion envar)
+    mainLoop
+  --start message handler
   sendMsg (CMsgHello "jan") sock
-  _ <- forkIO $ handleConnection envar
-
-  (progname, _) <- getArgsAndInitialize
-  createWindow "Hello World"
-  displayCallback $= display
-  passiveMotionCallback $= Just (mouseMotion envar)
-  mainLoop
-
-  putStrLn "exit"
+  handleConnection envar
 
 
 
 mouseMotion :: MVar Env -> Position -> IO ()
 mouseMotion envar (Position x y) = do
-  putStrLn $ show (Position x y)
+  {-putStrLn $ show (Position x y)-}
   env <- readMVar envar
   let msg = CMsgPaddle { _msg_pos = (fromIntegral x, fromIntegral y) }
   sendMsg msg (fromJust $ L.get env_socket env)
@@ -58,14 +61,14 @@ handleConnection envar = do
   env <- readMVar envar
   msg <- recvMsg $ fromJust $ L.get env_socket env
   case msg of
-    Nothing   -> do putStrLn "panic! server shut down!"
+    Nothing   -> do putStrLn "server shut down!"
     Just msg  -> do handleMsg envar msg
                     handleConnection envar
 
 handleMsg :: MVar Env -> Msg -> IO ()
 handleMsg envar msg = do 
   case msg of
-    SMsgWorld world -> do 
+    SMsgWorld clients isRunning -> do 
       env <- takeMVar envar  
       let playerMap =  Map.fromList $ map 
             (\(id, client)
@@ -73,8 +76,12 @@ handleMsg envar msg = do
                                 Nothing -> Player { playerPosition = (0.2,0.2) }
                                 Just (p, _) -> p
                  in (id, (player, client)) )
-            world
-      putMVar envar (L.set env_playerMap playerMap env)
+            clients
+      --put back env
+      putMVar envar (Env { _env_playerMap = playerMap,
+                           _env_socket    = L.get env_socket env,
+                           _env_isRunning = isRunning })
   env <- readMVar envar
   (putStrLn . show) env
+
 

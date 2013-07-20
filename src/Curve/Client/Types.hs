@@ -25,7 +25,8 @@ type PlayerMap = Map.Map Int (Player, Maybe Client)
 -- holds the enviornments state
 data Env = Env {
   _env_playerMap   :: PlayerMap,
-  _env_socket      :: Maybe Socket
+  _env_socket      :: Maybe Socket,
+  _env_isRunning   :: Bool
 } deriving Show
 $(mkLabels [''Env])
 
@@ -33,4 +34,5 @@ $(mkLabels [''Env])
 
 -- creates a new clean env
 newEnv :: Env
-newEnv = Env { _env_playerMap = Map.empty }
+newEnv = Env { _env_playerMap = Map.empty,
+               _env_isRunning = False }
