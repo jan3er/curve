@@ -92,28 +92,8 @@ listenForClients listenSock envar = forever $ do
           --put envar back and start handler
           putMVar envar env
           handleClient envar id
-
         _ -> putStrLn $ ( show msg )
-
       putStrLn "end of connection"
-
--- boadcast a SMsgWorld to all clients
-broadcastWorld :: Env -> IO ()
-broadcastWorld env = do
-  let socks = mapMaybe 
-        (\(_, (_, c))
-           -> if isNothing c 
-              then Nothing 
-              else Just (get scl_socket (fromJust c)))
-        (Map.toList $ get env_playerMap env)
-  let clients = map 
-        (\(id, (_, c)) 
-          -> if isNothing c 
-             then (id, Nothing) 
-             else (id, Just $ get scl_client (fromJust c)))
-        (Map.toList $ get env_playerMap env)
-  mapM (sendMsg (SMsgWorld { _msg_clients   = clients, _msg_isRunning = get env_isRunning env })) socks
-  return ()
 
 
 
@@ -124,7 +104,7 @@ handleClient envar id = do
   msg <- recvMsg $ get scl_socket client
   case msg of
     --connection closed? -> kill or delete client
-    Nothing -> do env <- takeMVar envar 
+    Nothing -> do env <- takeMVar envar
                   let f = if get env_isRunning env then killClient else Map.delete
                   putMVar envar $ modify env_playerMap (f id) env
                   --TODO close sock
@@ -151,16 +131,51 @@ handleClient envar id = do
                     {-logger "connection closed"-}
 
 
+-------------------------MESSAGE HANDLING---------------------------------
+
 -- this is called for every incomming message
 handleMsg :: MVar Env -> Int -> Msg -> IO ()
-handleMsg sock envar msg = case msg of
+handleMsg envar id msg = case msg of
     
-    CMsgPaddle (x, y) -> putStrLn $ (show x) ++ " " ++ (show y)
-
-    {-TimeMsg _ -> do-}
-      {-now <- getCurrentTime-}
-      {-sendMsg sock TimeMessage { mTIME = now }-}
-      {-logger "TimeMsg!"-}
-
+    MsgPaddle _ (x, y) -> do 
+      env <- takeMVar envar
+      putStrLn $ (show x) ++ " " ++ (show y)
+      broadcastPaddlePos env id msg
+      putMVar envar env 
     _ -> do
       logger "received unknown message"
+
+-- boadcast a SMsgWorld to all connected clients
+broadcastWorld :: Env -> IO ()
+broadcastWorld env =
+  let msgClients = map
+        (\(id, (_, c)) -> (id, maybe Nothing (Just . get scl_client) c))
+        (Map.toList $ get env_playerMap env)
+  in do
+  mapM_ (\id -> sendMsg (msgWorld msgClients id) (get scl_socket (clientById env id))) 
+        (getConnectedClients env)
+  where
+    msgWorld msgClients id = 
+      SMsgWorld { 
+        _SMsgWorld_clients   = msgClients,
+        _SMsgWorld_clientId  = id,
+        _SMsgWorld_isRunning = get env_isRunning env
+      }
+
+-- boadcast paddlePos to all clients
+broadcastPaddlePos :: Env -> Int -> Msg -> IO ()
+broadcastPaddlePos env id (MsgPaddle _ pos) = 
+  let msgPaddlePos = MsgPaddle { _MsgPaddle_id = id, _MsgPaddle_pos = pos }
+  in do
+  mapM_ (\id -> sendMsg msgPaddlePos (get scl_socket (clientById env id)))
+        (filter (/= id) $ getConnectedClients env)
+
+
+-- returns ids of all connected clients
+getConnectedClients :: Env -> [Int]
+getConnectedClients env = 
+  let reducedPlayerMap' = filter (\x -> isJust $ (snd . snd) x ) (Map.toList $ get env_playerMap env)
+      reducedPlayerMap  = filter (\x -> get (cl_isAlive . scl_client) (fromJust $ (snd . snd) x) ) reducedPlayerMap'
+  in  map fst reducedPlayerMap
+-- returns the socket by id
+clientById env id = (fromJust . snd) (fromJust $ Map.lookup id (get env_playerMap env))

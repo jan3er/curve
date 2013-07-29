@@ -22,10 +22,12 @@ data Client = Client {
 $(mkLabels [''Client])
 
 -- represent messages
-data Msg = CMsgHello  { _msg_nick      :: String }
-         | CMsgPaddle { _msg_pos       :: (Float, Float) }
-         | SMsgWorld  { _msg_clients   :: [(Int, Maybe Client)],
-                        _msg_isRunning :: Bool }
+data Msg = CMsgHello  { _CMsgHello_nick      :: String }
+         |  MsgPaddle {  _MsgPaddle_id       :: Int,
+                         _MsgPaddle_pos      :: (Float, Float) }
+         | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)],
+                        _SMsgWorld_clientId  :: Int,
+                        _SMsgWorld_isRunning :: Bool }
          |  MsgUnknown deriving (Data, Typeable, Show)
 $(mkLabels [''Msg])
 

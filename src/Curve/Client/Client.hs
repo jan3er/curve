@@ -32,13 +32,16 @@ start = do
   connect sock (addrAddress serverAddr)
   --create env
   envar <- newMVar $ Env { _env_playerMap = Map.empty,
-                           _env_socket    = Just sock,
+                           _env_socket    = sock,
+                           _env_id        = -1,
+                           _env_paddlePos = (0.5,0.5),
                            _env_isRunning = False }
-  --start glut
+  --fork glut
   _ <- forkOS $ do
+    initialDisplayMode $= [DoubleBuffered]
     (progname, _) <- getArgsAndInitialize
     createWindow "Hello World"
-    displayCallback $= display
+    displayCallback $= display envar
     passiveMotionCallback $= Just (mouseMotion envar)
     mainLoop
   --start message handler
@@ -50,25 +53,28 @@ start = do
 mouseMotion :: MVar Env -> Position -> IO ()
 mouseMotion envar (Position x y) = do
   {-putStrLn $ show (Position x y)-}
-  env <- readMVar envar
-  let msg = CMsgPaddle { _msg_pos = (fromIntegral x, fromIntegral y) }
-  sendMsg msg (fromJust $ L.get env_socket env)
+  env <- takeMVar envar
+  let floatTupe = (fromIntegral x, fromIntegral y)
+  let msg = MsgPaddle { _MsgPaddle_pos = floatTupe,
+                        _MsgPaddle_id  = -1 }
+  sendMsg msg (L.get env_socket env)
+  putMVar envar (set env_paddlePos floatTupe env)
 
 
 
 handleConnection :: MVar Env -> IO ()
 handleConnection envar = do
   env <- readMVar envar
-  msg <- recvMsg $ fromJust $ L.get env_socket env
+  msg <- recvMsg $ L.get env_socket env
   case msg of
     Nothing   -> do putStrLn "server shut down!"
     Just msg  -> do handleMsg envar msg
                     handleConnection envar
 
 handleMsg :: MVar Env -> Msg -> IO ()
-handleMsg envar msg = do 
+handleMsg envar msg = do
   case msg of
-    SMsgWorld clients isRunning -> do 
+    SMsgWorld clients id isRunning -> do 
       env <- takeMVar envar  
       let playerMap =  Map.fromList $ map 
             (\(id, client)
@@ -77,10 +83,13 @@ handleMsg envar msg = do
                                 Just (p, _) -> p
                  in (id, (player, client)) )
             clients
-      --put back env
-      putMVar envar (Env { _env_playerMap = playerMap,
+      --modify and put back env
+      putMVar envar (env { _env_playerMap = playerMap,
                            _env_socket    = L.get env_socket env,
                            _env_isRunning = isRunning })
+
+    MsgPaddle id pos -> do
+      (putStrLn . show) (id, pos)
   env <- readMVar envar
   (putStrLn . show) env
 
