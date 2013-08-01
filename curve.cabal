@@ -42,4 +42,8 @@ executable CurveClient
                        pretty-show,
                        containers,
                        GLUT,
-                       OpenGL
+                       OpenGL,
+                       OpenGLRaw,
+                       GLUtil,
+                       linear,
+                       Vec

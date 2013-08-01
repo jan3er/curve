@@ -38,7 +38,7 @@ start = do
                            _env_isRunning = False }
   --fork glut
   _ <- forkOS $ do
-    initialDisplayMode $= [DoubleBuffered]
+    initialDisplayMode $= [DoubleBuffered, WithDepthBuffer]
     (progname, _) <- getArgsAndInitialize
     createWindow "Hello World"
     displayCallback $= display envar
