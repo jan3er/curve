@@ -6,11 +6,12 @@ module Curve.Game.Types where
 
 import Data.Time
 import Data.Vec
-import Data.Label
+
+import Control.Lens
 
 -- represends one player
 data Player = Player {
       {-playerPosition :: (Float, Float) --replace this with vec-}
       _player_posList :: [(UTCTime, Vec2 Float)]
     } deriving Show
-$(mkLabels [''Player])
+makeLenses ''Player

@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-missing-signatures #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Curve.Client.Render.Renderer where

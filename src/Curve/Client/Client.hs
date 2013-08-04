@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 module Curve.Client.Client where
 
@@ -6,14 +6,17 @@ import           System.IO
 import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
+import           Control.Lens
+
 import           Data.Time
 import           Data.List
 import           Data.Vec hiding (head, map)
 import           Data.Maybe
 import           Data.IORef
-import           Data.Label as L
 import qualified Data.Map.Lazy as Map
+
 import           Network.Socket
+
 import           Graphics.Rendering.OpenGL
 import           Graphics.UI.GLUT
 
@@ -21,6 +24,7 @@ import           Curve.Network.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Types
+import           Curve.Game.Misc
 
 
 start :: IO ()
@@ -48,13 +52,14 @@ start = do
                           display res env
     passiveMotionCallback $= Just (mouseMotion envar)
     forever $ do
-      env <- takeMVar envar
       --drop all positions except for the first three
-      let chropPosList = L.modify player_posList (Data.List.take 3)
+      {-let chropPosList = L.modify player_posList (Data.List.take 3)-}
+      let chropPosList = player_posList %~ (Data.List.take 3)
       let modifyTuple (id, (player, c)) = (id, (chropPosList player, c))
-      putMVar envar $ L.modify env_playerMap (Map.fromList . (map modifyTuple) . Map.toList) env
+      env <- takeMVar envar
+      putMVar envar $ env & env_playerMap %~ (Map.fromList . (map modifyTuple) . Map.toList)      
       --draw on screen and do event handling
-      render ioResources env
+      render ioResources =<< readMVar envar
 
   --start message handler
   sendMsg (CMsgHello "jan") sock
@@ -69,8 +74,8 @@ mouseMotion envar (Position _x _y) = do
   t <- getCurrentTime
   let (x,y) = (fromIntegral _x, fromIntegral _y)
   let msg = MsgPaddle { _MsgPaddle_pos = (t, x, y),
-                        _MsgPaddle_id  = L.get env_id env }
-  sendMsg msg (L.get env_socket env)
+                        _MsgPaddle_id  = env^.env_id }
+  sendMsg msg (env^.env_socket )
   putMVar envar $ appendPaddlePos msg env
   -- display debug infos
   {-env <- readMVar envar-}
@@ -82,7 +87,7 @@ mouseMotion envar (Position _x _y) = do
 handleConnection :: MVar Env -> IO ()
 handleConnection envar = do
   env <- readMVar envar
-  msg <- recvMsg $ L.get env_socket env
+  msg <- recvMsg $ env^.env_socket 
   case msg of
     Nothing   -> do putStrLn "server shut down!"
     Just msg  -> do handleMsg envar msg
@@ -95,20 +100,21 @@ handleMsg envar msg = do
       env <- takeMVar envar  
       let playerMap =  Map.fromList $ map 
             (\(id, client)
-              -> let player = case Map.lookup id (L.get env_playerMap env) of
+              -> let player = case Map.lookup id (env^.env_playerMap ) of
                                 Nothing -> Player { _player_posList = [] }
                                 Just (p, _) -> p
                  in (id, (player, client)) )
             clients
       --modify and put back env
       putMVar envar (env { _env_playerMap = playerMap,
-                           _env_socket    = L.get env_socket env,
+
+                           _env_socket    = env^.env_socket ,
                            _env_id        = myId,
                            _env_isRunning = isRunning })
       -- display debug infos
-      {-putStrLn $ "--------- " ++ (show myId) ++ " -------------"-}
-      {-env <- readMVar envar-}
-      {-(putStrLn . show) env-}
+      putStrLn $ "--------- " ++ (show myId) ++ " -------------"
+      env <- readMVar envar
+      (putStrLn . show) env
 
     MsgPaddle _ _ -> do
       env <- takeMVar envar
@@ -120,5 +126,5 @@ handleMsg envar msg = do
 
 appendPaddlePos :: Msg -> Env -> Env
 appendPaddlePos (MsgPaddle id (t,x,y)) env = 
-  let appendToPM (p, c) = (L.modify player_posList ((t, x:.y:.()):) p, c)
-  in  modify env_playerMap (Map.adjust appendToPM id) env
+  let appendToPM (p, c) = (p & player_posList %~ ((t, x:.y:.()):), c)
+  in  env & env_playerMap %~ (Map.adjust appendToPM id)

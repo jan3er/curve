@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 module Curve.Server.Server where
 
@@ -11,16 +11,13 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Map.Lazy as Map
 import           Network.Socket
-import           Text.Show.Pretty
 
--- the recomended way to include labels
-import           Control.Category
-import           Data.Label
-import           Prelude hiding ((.), id)
+import           Control.Lens
 
 import           Curve.Server.Types
 import           Curve.Server.Misc
 import           Curve.Network.Network
+import           Curve.Game.Misc
 
 
 
@@ -36,7 +33,8 @@ inputHandler envar = forever $ do
   where 
     toggleIsRunning = do 
       env <- takeMVar envar
-      let modifiedEnv = modify env_isRunning not env 
+      {-let modifiedEnv = modify env_isRunning not env -}
+      let modifiedEnv = env & env_isRunning %~ not
       broadcastWorld modifiedEnv
       putMVar envar modifiedEnv
 
@@ -72,7 +70,7 @@ listenForClients :: Socket -> MVar Env -> IO ()
 listenForClients listenSock envar = forever $ do 
   (conn, _) <- accept listenSock
   env <- readMVar envar 
-  case get env_isRunning env of
+  case env^.env_isRunning  of
     True  -> logger "conection refused" >> sClose conn
     False -> forkIO (acceptNewClient conn) >> return ()
   where 
@@ -85,8 +83,10 @@ listenForClients listenSock envar = forever $ do
           --take envar and add client to env
           envOld <- takeMVar envar
           now <- getCurrentTime
-          let (pm, id) = addClient (get env_playerMap envOld) sock nick now 
-          let env = set env_playerMap pm envOld
+          let (pm, id) = addClient (envOld^.env_playerMap) sock nick now 
+          let env = envOld & Control.Lens.set env_playerMap pm
+          -- TODO:
+          {-let env = envOld & env_playerMap ^~ pm -}
           --broadcast changed world
           broadcastWorld env
           --put envar back and start handler
@@ -100,12 +100,13 @@ listenForClients listenSock envar = forever $ do
 handleClient :: MVar Env -> Int -> IO ()
 handleClient envar id = do
   env <- readMVar envar
-  let Just (_, Just client) = Map.lookup id (get env_playerMap env)
-  msg <- recvMsg $ get scl_socket client
+  let Just (_, Just client) = Map.lookup id (env^.env_playerMap )
+  msg <- recvMsg $ client^.scl_socket 
   case msg of
     --connection closed? -> kill or delete client
-    Nothing -> do let f = if get env_isRunning env then killClient else Map.delete
-                  modifyMVar_ envar (return <$> modify env_playerMap (f id))
+    Nothing -> do let f = if env^.env_isRunning then killClient else Map.delete
+                  {-modifyMVar' envar $ modify env_playerMap (f id)-}
+                  modifyMVar' envar $ env_playerMap %~ (f id)
                   withMVar    envar broadcastWorld
 
     -- TODO
@@ -148,17 +149,18 @@ handleMsg envar id msg = case msg of
 broadcastWorld :: Env -> IO ()
 broadcastWorld env =
   let msgClients = map
-        (\(id, (_, c)) -> (id, maybe Nothing (Just . get scl_client) c))
-        (Map.toList $ get env_playerMap env)
+        {-(\(id, (_, c)) -> (id, maybe Nothing (Just . get scl_client) c))-}
+        (\(id, (_, c)) -> (id, (view scl_client) <$> c))
+        (Map.toList $ env^.env_playerMap )
   in do
-  mapM_ (\id -> sendMsg (msgWorld msgClients id) (get scl_socket (clientById env id))) 
+  mapM_ (\id -> sendMsg (msgWorld msgClients id) ((clientById env id)^.scl_socket )) 
         (getConnectedClients env)
   where
     msgWorld msgClients id = 
       SMsgWorld { 
         _SMsgWorld_clients   = msgClients,
         _SMsgWorld_clientId  = id,
-        _SMsgWorld_isRunning = get env_isRunning env
+        _SMsgWorld_isRunning = env^.env_isRunning  
       }
 
 -- boadcast paddlePos to all clients except for the one with ID=id
@@ -167,15 +169,15 @@ broadcastPaddlePos :: Env -> Int -> Msg -> IO ()
 broadcastPaddlePos env id (MsgPaddle _ pos) = 
   let msgPaddlePos = MsgPaddle { _MsgPaddle_id = id, _MsgPaddle_pos = pos }
   in do
-  mapM_ (\id -> sendMsg msgPaddlePos (get scl_socket (clientById env id)))
+  mapM_ (\id -> sendMsg msgPaddlePos ((clientById env id)^.scl_socket ))
         (filter (/= id) $ getConnectedClients env)
 
 
--- returns ids of all connected clients
+-- return ids of all connected clients
 getConnectedClients :: Env -> [Int]
 getConnectedClients env = 
-  let reducedPlayerMap' = filter (\x -> isJust $ (snd . snd) x ) (Map.toList $ get env_playerMap env)
-      reducedPlayerMap  = filter (\x -> get (cl_isAlive . scl_client) (fromJust $ (snd . snd) x) ) reducedPlayerMap'
-  in  map fst reducedPlayerMap
+  let isConnected (_, (_, c)) = maybe False (^.(scl_client.cl_isAlive)) c
+  in  map fst $ filter isConnected (Map.toList $ env^.env_playerMap)
+
 -- returns the socket by id
-clientById env id = (fromJust . snd) (fromJust $ Map.lookup id (get env_playerMap env))
+clientById env id = (fromJust . snd) (fromJust $ Map.lookup id (env^.env_playerMap ))

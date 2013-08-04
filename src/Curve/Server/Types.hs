@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -12,10 +12,7 @@ import           Network.Socket
 import           Curve.Network.Types
 import           Curve.Game.Types
 
-import           Control.Category
-import           Data.Label
-import           Prelude hiding ((.), id)
-
+import           Control.Lens
 
 
 ----------------------------------------
@@ -25,7 +22,7 @@ data SClient = SClient {
   _scl_socket   :: Socket,
   _scl_client   :: Client
 } deriving Show
-$(mkLabels [''SClient])
+makeLenses ''SClient
 
 type PlayerMap = Map.Map Int (Player, Maybe SClient)
 
@@ -34,7 +31,7 @@ data Env = Env {
   _env_playerMap   :: PlayerMap,
   _env_isRunning   :: Bool
 } deriving Show
-$(mkLabels [''Env])
+makeLenses ''Env
 
 -----------------------------------------
 
@@ -62,4 +59,5 @@ killClient id pm = Map.alter f id pm
   where 
     f Nothing            = Nothing
     f (Just(p, Nothing)) = Just(p, Nothing) 
-    f (Just(p, Just c))  = Just(p, Just (set (cl_isAlive . scl_client) False c))
+    {-f (Just(p, Just c))  = Just(p, Just (set (cl_isAlive . scl_client) False c))-}
+    f (Just(p, Just c))  = Just(p, Just (Control.Lens.set (scl_client.cl_isAlive) False c))

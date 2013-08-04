@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -9,9 +9,7 @@ import           Data.Typeable
 import           Data.Data
 import           Data.Vec
 
-import           Control.Category
-import           Data.Label
-import           Prelude hiding ((.), id)
+import           Control.Lens
 
 import           Curve.Game.Types
 
@@ -20,16 +18,16 @@ data Client = Client {
   _cl_lastMsg  :: UTCTime,
   _cl_isAlive  :: Bool
 } deriving (Data, Typeable, Show)
-$(mkLabels [''Client])
+makeLenses ''Client
 
 -- represent messages
 data Msg = CMsgHello  { _CMsgHello_nick      :: String }
-         |  MsgPaddle {  _MsgPaddle_id       :: Int,
-                         _MsgPaddle_pos      :: (UTCTime, Float, Float) }
-         | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)],
-                        _SMsgWorld_clientId  :: Int,
-                        _SMsgWorld_isRunning :: Bool }
+         |  MsgPaddle { _MsgPaddle_id        :: Int
+                      , _MsgPaddle_pos       :: (UTCTime, Float, Float) }
+         | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)]
+                      , _SMsgWorld_clientId  :: Int
+                      , _SMsgWorld_isRunning :: Bool }
          |  MsgUnknown deriving (Data, Typeable, Show)
-$(mkLabels [''Msg])
+makeLenses ''Msg
 
              {-| TimeMessage { mTIME :: UTCTime }-}
