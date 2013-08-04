@@ -9,6 +9,7 @@ out vec4 oColor;
 
 void main() 
 {
-    oColor = vec4(fNormal,1);
+    
+    oColor = vec4(vec3(0.5) + 0.5*fNormal,1);
 }
 

@@ -15,15 +15,16 @@ executable CurveServer
 
   other-modules:       Curve.Server.Server 
 
-  build-depends:       base ==4.6.*,
-                       monad-loops ==0.4.*,
-                       time ==1.4.*,
-                       aeson ==0.6.*,
-                       bytestring ==0.10.*,
-                       network ==2.4.*,
-                       fclabels,
-                       pretty-show,
-                       containers
+  build-depends:       base ==4.6.*
+                      ,monad-loops ==0.4.*
+                      ,time ==1.4.*
+                      ,aeson ==0.6.*
+                      ,bytestring ==0.10.*
+                      ,network ==2.4.*
+                      ,fclabels
+                      ,pretty-show
+                      ,containers
+                      ,Vec
   
 executable CurveClient
   ghc-options:         -threaded
@@ -32,18 +33,18 @@ executable CurveClient
 
   other-modules:       Curve.Client.Client
 
-  build-depends:       base ==4.6.*, 
-                       monad-loops ==0.4.*,
-                       time ==1.4.*,
-                       aeson ==0.6.*,
-                       bytestring ==0.10.*,
-                       network ==2.4.*,
-                       fclabels,
-                       pretty-show,
-                       containers,
-                       GLUT,
-                       OpenGL,
-                       OpenGLRaw,
-                       GLUtil,
-                       linear,
-                       Vec
+  build-depends:       base ==4.6.* 
+                      ,monad-loops ==0.4.*
+                      ,time ==1.4.*
+                      ,aeson ==0.6.*
+                      ,bytestring ==0.10.*
+                      ,network ==2.4.*
+                      ,fclabels
+                      ,pretty-show
+                      ,containers
+                      ,GLUT
+                      ,OpenGL
+                      ,OpenGLRaw
+                      ,GLUtil
+                      ,linear
+                      ,Vec

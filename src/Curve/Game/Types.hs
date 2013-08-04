@@ -1,21 +1,16 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Curve.Game.Types where
 
 import Data.Time
-import Network.Socket
-
--- will hold the enviornment state
--- data Env = Env {
---   envPlayers   :: [Player]
--- } deriving Show
+import Data.Vec
+import Data.Label
 
 -- represends one player
 data Player = Player {
-      playerPosition :: (Float, Float) --replace this with vec
+      {-playerPosition :: (Float, Float) --replace this with vec-}
+      _player_posList :: [(UTCTime, Vec2 Float)]
     } deriving Show
-
-{-instance Eq Player where-}
-  {-a == b = (playerId a) == (playerId b)-}
-
+$(mkLabels [''Player])

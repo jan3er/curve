@@ -52,7 +52,7 @@ addClient pm sock nick time =
                                                   _cl_isAlive = True 
                                                 }
                        }
-      player = Player { playerPosition = (0.5, 0.5) }
+      player = Player { _player_posList = [] }
       id = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
   in (Map.insert id (player, Just client) pm, id)
 

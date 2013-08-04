@@ -7,6 +7,7 @@ module Curve.Network.Types where
 import           Data.Time
 import           Data.Typeable
 import           Data.Data
+import           Data.Vec
 
 import           Control.Category
 import           Data.Label
@@ -24,7 +25,7 @@ $(mkLabels [''Client])
 -- represent messages
 data Msg = CMsgHello  { _CMsgHello_nick      :: String }
          |  MsgPaddle {  _MsgPaddle_id       :: Int,
-                         _MsgPaddle_pos      :: (Float, Float) }
+                         _MsgPaddle_pos      :: (UTCTime, Float, Float) }
          | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)],
                         _SMsgWorld_clientId  :: Int,
                         _SMsgWorld_isRunning :: Bool }

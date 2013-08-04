@@ -5,6 +5,7 @@ module Curve.Server.Server where
 import           System.IO
 import           Control.Concurrent
 import           Control.Monad
+import           Control.Applicative
 import           Data.Time
 import           Data.List
 import           Data.Maybe
@@ -12,6 +13,7 @@ import qualified Data.Map.Lazy as Map
 import           Network.Socket
 import           Text.Show.Pretty
 
+-- the recomended way to include labels
 import           Control.Category
 import           Data.Label
 import           Prelude hiding ((.), id)
@@ -20,10 +22,8 @@ import           Curve.Server.Types
 import           Curve.Server.Misc
 import           Curve.Network.Network
 
-{-import           Control.Monad.Loops-}
-{-import           Control.Exception-}
-{-import           Control.Applicative-}
-{-import           Data.Functor()-}
+
+
 
 -- handles input from keyboard
 inputHandler :: MVar Env -> IO ()
@@ -104,10 +104,9 @@ handleClient envar id = do
   msg <- recvMsg $ get scl_socket client
   case msg of
     --connection closed? -> kill or delete client
-    Nothing -> do env <- takeMVar envar
-                  let f = if get env_isRunning env then killClient else Map.delete
-                  putMVar envar $ modify env_playerMap (f id) env
-                  --TODO close sock
+    Nothing -> do let f = if get env_isRunning env then killClient else Map.delete
+                  modifyMVar_ envar (return <$> modify env_playerMap (f id))
+                  withMVar    envar broadcastWorld
 
     -- TODO
     Just msg  -> do handleMsg envar id msg
@@ -137,7 +136,7 @@ handleClient envar id = do
 handleMsg :: MVar Env -> Int -> Msg -> IO ()
 handleMsg envar id msg = case msg of
     
-    MsgPaddle _ (x, y) -> do 
+    MsgPaddle _ (t, x, y) -> do 
       env <- takeMVar envar
       putStrLn $ (show x) ++ " " ++ (show y)
       broadcastPaddlePos env id msg
@@ -162,7 +161,8 @@ broadcastWorld env =
         _SMsgWorld_isRunning = get env_isRunning env
       }
 
--- boadcast paddlePos to all clients
+-- boadcast paddlePos to all clients except for the one with ID=id
+-- accept only MsgPaddle
 broadcastPaddlePos :: Env -> Int -> Msg -> IO ()
 broadcastPaddlePos env id (MsgPaddle _ pos) = 
   let msgPaddlePos = MsgPaddle { _MsgPaddle_id = id, _MsgPaddle_pos = pos }

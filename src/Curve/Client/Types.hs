@@ -27,7 +27,6 @@ data Env = Env {
   _env_playerMap   :: PlayerMap,
   _env_socket      :: Socket,
   _env_id          :: Int,
-  _env_paddlePos   :: (Float, Float),
   _env_isRunning   :: Bool
 } deriving Show
 $(mkLabels [''Env])

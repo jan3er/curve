@@ -5,8 +5,10 @@ module Curve.Client.Render.Renderer where
 
 import           Control.Concurrent
 import           Control.Applicative
-{-import           Data.Foldable-}
+import           Control.Monad
 import           Data.List
+import qualified Data.Map as Map
+import           Data.IORef
 import           Data.Vec hiding (map, get)
 
 import           Foreign.Storable (sizeOf)
@@ -22,6 +24,7 @@ import           Graphics.GLUtil.VertexArrayObjects
 {-import qualified Data.Vec as Vec-}
 
 import           Curve.Client.Types
+import           Curve.Game.Types
 
 
 {-data Shaders = Shaders { prog              :: Program-}
@@ -94,32 +97,10 @@ cube w = (concatMap (\(a,b,c) -> [a,b,c]) )
 
 
 
-draw :: IO ()
-draw = do
-  {-s <- initShaders-}
-  {-clearColor $= Color4 0 0 0 1-}
-  {-clear [ColorBuffer]-}
-  {-currentProgram $= Just (prog s)-}
+draw :: Resources -> IO ()
+draw r = do
+  let s = res_basicShader r
 
-  {---set color-}
-  {-uniformVec (uColor s)      $= [1,0,1]-}
-  {-uniformMat (uViewMatrix s) $= [[  1,   0,   0,   0],-}
-                                 {-[  0,   1,   0,   0],-}
-                                 {-[  0,   0,   1,   0],-}
-                                 {-[  0,   0,   0,   1]]-}
-
-
-  {-let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)-}
-  {-let rot   = (rotationX 1) `multmm` (rotationY 1)-}
-  {-uniformMat (uModelMatrix      s) $= (matToLists) (trans `multmm` rot)-}
-  {-uniformMat (uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)-}
-
-  {-vao2 <- fooVAO 1 s-}
-  {-vao3 <- fooVAO 2 s-}
-  {-withVAO vao3 $ do drawArrays Quads 0 (4*6)-}
-
-
-  s <- initBasicShader
   clearColor $= Color4 0 0.1 0.1 1
   clear [ColorBuffer, DepthBuffer]
   depthMask $= Enabled
@@ -132,37 +113,24 @@ draw = do
                                        [  0,   0,   1,   0],
                                        [  0,   0,   0,   1]]
 
-
   let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
   let rot   = (rotationX 1) `multmm` (rotationY 1)
   uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)
   uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)
 
-  vao1 <- makePaddleVAO s
-  withVAO vao1 $ do drawArrays Quads 0 (4*6)
+  drawMyVAO (res_paddleVAO r)
   GLUT.swapBuffers
 
 
 
-display :: MVar Env -> IO ()
-display envar = do
-  {-clear [ ColorBuffer ]-}
-  {-flush-}
-  draw
+
 
 -----------------------------------------------------------
 -- TODO shader programming:
 {-http://www.arcadianvisions.com/blog/?p=224-}
 
-{-makeTexture :: FilePath -> IO TextureObject -}
-{-makeTexture filename = -}
-    {-[>do (width,height,pixels) <- readTGA filename <]-}
-       {-texture <- loadTexture $ texInfo width height TexBGR pixels-}
-       {-textureFilter   Texture2D   $= ((Linear', Nothing), Linear') -}
-       {-textureWrapMode Texture2D S $= (Mirrored, ClampToEdge) -}
-       {-textureWrapMode Texture2D T $= (Mirrored, ClampToEdge) -}
-       {-return texture-}
 
+--TYPES------------------------
 
 data BasicShader = BasicShader { basic_program           :: Program
                                 ,basic_vPositionVAD      :: VertexArrayDescriptor Int
@@ -180,12 +148,17 @@ data MyVAO = MyVAO { vao_vao  :: VertexArrayObject
                     ,vao_mode :: PrimitiveMode
                     ,vao_num  :: NumArrayIndices } 
 
+drawMyVAO :: MyVAO -> IO ()
+drawMyVAO v = withVAO (vao_vao v) $ do drawArrays (vao_mode v) 0 (vao_num v)
+
+
 data Resources = Resources { res_basicShader :: BasicShader
                             ,res_paddleVAO   :: MyVAO }
                             {-,elementBuffer   :: BufferObject-}
                             {-,shaders         :: Shaders-}
                             {-,fadeFactor      :: GLfloat }-}
 
+--SHADER------------------------
 
 shaderProgramFromPath :: String -> IO (Program)
 shaderProgramFromPath name = 
@@ -204,13 +177,7 @@ initBasicShader = let
     normVad = VertexArrayDescriptor 3 Float stride (plusPtr offset0 (fs*3))
     texVad  = VertexArrayDescriptor 2 Float stride (plusPtr offset0 (fs*6))
   in do 
-  p <- shaderProgramFromPath "HelloWorld" {-v1 <- get (attribLocation  p "vPosition")-}
-  v1 <- get (attribLocation  p "vPosition")
-  v2 <- get (attribLocation  p "vNormal")
-  v3 <- get (attribLocation  p "vTexCoord")
-  (putStrLn . show) v1
-  (putStrLn . show) v2
-  (putStrLn . show) v3
+  p <- shaderProgramFromPath "HelloWorld"
   BasicShader p posVad normVad texVad
     <$> get (attribLocation  p "vPosition")
     <*> get (attribLocation  p "vNormal")
@@ -220,16 +187,11 @@ initBasicShader = let
     <*> get (uniformLocation p "uViewMatrix")
     <*> get (uniformLocation p "uProjectionMatrix")
 
---paddlevao
+--VAO-------------------------------
 
 paddleArray :: [GLfloat]
-paddleArray = (concatMap arrayfy) $ zip3 (paddlePosition 1 1 1) paddleNormal paddleTexCoord
-  where
-   arrayfy ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
-{-paddleArray = (concatMap arr (paddlePosition 1 1 1)) ++ (concatMap arr paddleNormal)-}
-
-arr (a,b,c) = [a,b,c]
-
+paddleArray = (concatMap toArray) $ zip3 (paddlePosition 1 1 1) paddleNormal paddleTexCoord
+  where toArray ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
 
 paddlePosition :: GLfloat -> GLfloat -> GLfloat -> [(GLfloat, GLfloat, GLfloat)]
 paddlePosition x y z = 
@@ -258,12 +220,10 @@ paddleTexCoord =
     ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
     ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0) ]
 
-makePaddleVAO :: BasicShader -> IO (VertexArrayObject)
+makePaddleVAO :: BasicShader -> IO (MyVAO)
 makePaddleVAO s = do
-  {-ab  <- makeBuffer ArrayBuffer (concatMap (\(x,y,z) -> [x,y,z]) (paddlePosition 1 1 1))-}
-  ab  <- makeBuffer ArrayBuffer paddleArray
-  makeVAO $ do
-    putStrLn "makeVAO"
+  vao <- makeVAO $ do
+    ab  <- makeBuffer ArrayBuffer paddleArray
     bindBuffer ArrayBuffer $= Just ab
     vertexAttribArray   (basic_vPosition s) $= Enabled
     vertexAttribArray   (basic_vNormal   s) $= Enabled
@@ -272,3 +232,78 @@ makePaddleVAO s = do
     vertexAttribPointer (basic_vNormal   s) $= (ToFloat, (basic_vNormalVAD   s))
     vertexAttribPointer (basic_vTexCoord s) $= (ToFloat, (basic_vTexCoordVAD s))
     printError
+  return $ MyVAO vao Quads (4*6)
+
+-----------------------------------------------------------------------------
+--PUBLIC---------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+initResources :: IO (Resources)
+initResources = do 
+  s <- initBasicShader
+  vao <- makePaddleVAO s
+  return $ Resources s vao
+
+render :: IORef Resources -> Env -> IO ()
+render ioRes env = do 
+  win <- (get GLUT.currentWindow)
+  GLUT.postRedisplay win
+  GLUT.mainLoopEvent
+  
+
+display :: Resources -> Env -> IO ()
+display res env = do
+  clearColor $= Color4 0 0.1 0.1 1
+  clear [ColorBuffer, DepthBuffer]
+  depthMask $= Enabled
+  depthFunc $= Just Lequal
+  let s = res_basicShader res
+  currentProgram $= Just (basic_program s)
+  
+  let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
+  {-putStrLn "--------" -}
+  {-putStrLn $ show posList-}
+  {-putStrLn "--------" -}
+  {-putStrLn $ "--------- " ++ (show $ _env_id env) ++ " -------------"-}
+  {-(putStrLn . show) env-}
+
+  
+  uniformVec (basic_uColor s)      $= [1,0,1]
+  uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],
+                                       [  0,   1,   0,   0],
+                                       [  0,   0,   1,   0],
+                                       [  0,   0,   0,   1]]
+
+  sequence_ $ map (foodoo ) posList
+
+  {-let (b1, b2) = _env_paddlePos env-}
+  {-let (b1, b2) = (200, 300)-}
+  {-let (a1, a2) = (realToFrac b1*0.01, realToFrac b2*(-0.01))-}
+  {-putStrLn $ (show a1) ++ (show a2)-}
+
+
+
+  {-let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)-}
+  {-let rot   = (rotationY a1) `multmm` (rotationX a2) :: Mat44 GLfloat-}
+  {-uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)-}
+  {-uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)-}
+
+  {-drawMyVAO (res_paddleVAO res)-}
+
+  GLUT.swapBuffers
+
+  where 
+    foodoo l = do
+      let s = res_basicShader res
+      let (a1, a2) = case l of
+                        [] -> (200, 200)
+                        (_,x:.y:.()) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
+
+      let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
+      let rot   = (rotationY a1) `multmm` (rotationX a2) :: Mat44 GLfloat
+      uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)
+      uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)
+
+      drawMyVAO (res_paddleVAO res)
+
+
