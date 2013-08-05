@@ -22,12 +22,17 @@ type PlayerMap = Map.Map Int (Player, Maybe Client)
 
 -- holds the enviornments state
 data Env = Env 
-  { _env_playerMap   :: PlayerMap
-  , _env_socket      :: Socket
-  , _env_nr          :: Int
-  , _env_isRunning   :: Bool
-  {-, _env_currentTime :: UTCTime-}
+  { _env_playerMap     :: PlayerMap
+  , _env_socket        :: Socket
+  , _env_nr            :: Int
+  , _env_isRunning     :: Bool
+  , _env_timeOffset    :: NominalDiffTime
+  , _env_lastTimeQuery :: UTCTime
   } deriving Show
 makeLenses ''Env
 
 ----------------------------------
+
+-- time between two msgTime polls in seconds
+queryOffset :: Float
+queryOffset = 1

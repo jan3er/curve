@@ -3,7 +3,7 @@
 module Curve.Client.Client where
 
 import           Control.Concurrent
-{-import           Control.Applicative-}
+import           Control.Applicative
 import           Control.Monad
 import           Control.Lens
 
@@ -23,46 +23,57 @@ import           Curve.Network.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Types
-{-import           Curve.Game.Misc-}
+import           Curve.Game.Misc
 
 
 start :: IO ()
 start = do
   --connect to server
   addrInfo <- getAddrInfo Nothing 
-                        (Just "127.0.0.1") 
-                        (Just "1337")
+                          (Just "127.0.0.1") 
+                          (Just "1337")
   let serverAddr = head addrInfo
   sock <- socket (addrFamily serverAddr) Stream defaultProtocol
   connect sock (addrAddress serverAddr)
   --create env
-  envar <- newMVar $ Env { _env_playerMap = Map.empty,
-                           _env_socket    = sock,
-                           _env_nr        = -1,
-                           _env_isRunning = False }
+  t     <- getCurrentTime
+  envar <- newMVar $ Env Map.empty
+                         sock
+                         (-1)
+                         False
+                         (diffUTCTime t t) --TODO: better way for default difference?
+                         t
   --fork glut
   _ <- forkOS $ do
     initialDisplayMode $= [DoubleBuffered, WithDepthBuffer]
     (progname, _) <- getArgsAndInitialize
-    _ <- createWindow "curve"
-    ioResources <- newIORef =<< initResources
+    _             <- createWindow progname
+    ioResources   <- newIORef =<< initResources
     displayCallback $= do res <- readIORef ioResources
                           env <- readMVar envar
                           display res env
     passiveMotionCallback $= Just (mouseMotion envar)
-    forever $ do
-      --drop all positions except for the first three
-      {-let chropPosList = L.modify player_posList (Data.List.take 3)-}
-      let chropPosList = player_posList %~ (Data.List.take 3)
-      let modifyTuple (nr, (player, c)) = (nr, (chropPosList player, c))
-      env <- takeMVar envar
-      putMVar envar $ env & env_playerMap %~ (Map.fromList . (map modifyTuple) . Map.toList)      
-      --draw on screen and do event handling
-      render ioResources =<< readMVar envar
+    gameLoop envar ioResources
 
   --start message handler
   sendMsg (CMsgHello "jan") sock
   handleConnection envar
+
+gameLoop :: MVar Env -> IORef Resources -> IO ()
+gameLoop envar ioResources = forever $ do
+  --drop all positions except for the first three
+  let chropPosList = player_posList %~ (Data.List.take 3)
+  let modifyTuple (nr, (player, c)) = (nr, (chropPosList player, c))
+  modifyMVar' envar $ env_playerMap %~ (Map.fromList . (map modifyTuple) . Map.toList)
+  --query time if necessary
+  
+  -- TODO this is stil crap
+  {-env <- readMVar envar-}
+  {-diff <- diffUTCTime (env^.env_lastTimeQuery) <$> getCurrentTime-}
+  {-when (diff >= queryOffset) $ putStrLn "foo" -}
+
+  --draw on screen and do event handling
+  render ioResources =<< readMVar envar
 
 
 
@@ -70,7 +81,7 @@ mouseMotion :: MVar Env -> Position -> IO ()
 mouseMotion envar (Position _x _y) = do
   {-putStrLn $ show (Position x y)-}
   env <- takeMVar envar
-  t <- getCurrentTime
+  t   <- getCurrentTime
   let (x,y) = (fromIntegral _x, fromIntegral _y)
   let msg = MsgPaddle { _MsgPaddle_pos = (t, x, y),
                         _MsgPaddle_nr  = env^.env_nr }

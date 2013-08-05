@@ -138,13 +138,16 @@ handleClient envar nr = do
 handleMsg :: MVar Env -> Int -> Msg -> IO ()
 handleMsg envar nr msg = case msg of
     
-    MsgPaddle _ (_, x, y) -> do 
-      env <- takeMVar envar
-      putStrLn $ (show x) ++ " " ++ (show y)
-      broadcastPaddlePos env nr msg
-      putMVar envar env 
-    _ -> do
-      logger "received unknown message"
+    MsgPaddle _ (_, x, y) -> do env <- takeMVar envar
+                                putStrLn $ (show x) ++ " " ++ (show y)
+                                broadcastPaddlePos env nr msg
+                                putMVar envar env 
+
+    MsgTime _             -> do env <- readMVar envar
+                                m <- MsgTime <$> getCurrentTime
+                                sendMsg m $ (clientByNr env nr)^.scl_socket
+
+    _ -> do logger "received unknown message"
 
 -- boadcast a SMsgWorld to all connected clients
 broadcastWorld :: Env -> IO ()

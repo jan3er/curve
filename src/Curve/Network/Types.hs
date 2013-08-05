@@ -20,13 +20,15 @@ data Client = Client {
 makeLenses ''Client
 
 -- represent messages
-data Msg = CMsgHello  { _CMsgHello_nick      :: String }
-         |  MsgPaddle { _MsgPaddle_nr        :: Int
-                      , _MsgPaddle_pos       :: (UTCTime, Float, Float) }
-         | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)]
-                      , _SMsgWorld_clientNr  :: Int
-                      , _SMsgWorld_isRunning :: Bool }
-         |  MsgUnknown deriving (Data, Typeable, Show)
+data Msg = CMsgHello     { _CMsgHello_nick      :: String }
+         | SMsgWorld     { _SMsgWorld_clients   :: [(Int, Maybe Client)]
+                         , _SMsgWorld_clientNr  :: Int
+                         , _SMsgWorld_isRunning :: Bool }
+         | MsgPaddle     { _MsgPaddle_nr        :: Int
+                         , _MsgPaddle_pos       :: (UTCTime, Float, Float) }
+         | MsgTime       { _MsgTime_time        :: UTCTime }
+         | MsgUnknown 
+  deriving (Data, Typeable, Show)
 makeLenses ''Msg
 
              {-| TimeMessage { mTIME :: UTCTime }-}
