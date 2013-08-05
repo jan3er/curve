@@ -46,6 +46,7 @@ inputHandler envar = forever $ do
 -- the server entry point
 start :: IO ()
 start = withSocketsDo $ do
+  putStrLn "server started"
   hSetBuffering stdout LineBuffering
   envar <- newMVar newEnv
   _ <- forkIO $ inputHandler envar
@@ -136,8 +137,9 @@ handleClient envar nr = do
 
 -- this is called for every incomming message
 handleMsg :: MVar Env -> Int -> Msg -> IO ()
-handleMsg envar nr msg = case msg of
-    
+handleMsg envar nr msg = do
+  putStrLn $ show msg
+  case msg of
     MsgPaddle _ (_, x, y) -> do env <- takeMVar envar
                                 putStrLn $ (show x) ++ " " ++ (show y)
                                 broadcastPaddlePos env nr msg
@@ -147,7 +149,7 @@ handleMsg envar nr msg = case msg of
                                 m <- MsgTime <$> getCurrentTime
                                 sendMsg m $ (clientByNr env nr)^.scl_socket
 
-    _ -> do logger "received unknown message"
+    _ -> do logger "received unknown message" >> (putStrLn . show) msg
 
 -- boadcast a SMsgWorld to all connected clients
 broadcastWorld :: Env -> IO ()

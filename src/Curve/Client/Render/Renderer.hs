@@ -6,6 +6,8 @@ module Curve.Client.Render.Renderer where
 import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
+import           Control.Lens
+
 import           Data.List
 import qualified Data.Map as Map
 import           Data.IORef
@@ -249,14 +251,9 @@ initResources = do
   {-res <- readIORef ioRes-}
   {-display res env-}
 
-render :: [(GLfloat, GLfloat)] -> IO ()
-render l = do
-  GL.renderPrimitive GL.Lines $ mapM_
-      (\ (x, y) -> GL.vertex (Vertex3 x y 0)) l
- 
 
-display :: Resources -> Env -> IO ()
-display res env = do
+render:: Resources -> Env -> IO ()
+render res env = do
   clearColor $= Color4 0 0.1 0.1 1
   clear [ColorBuffer, DepthBuffer]
   depthMask $= Enabled
@@ -265,7 +262,6 @@ display res env = do
   currentProgram $= Just (basic_program s)
   
   let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
-
   
   uniformVec (basic_uColor s)      $= [1,0,1]
   uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],
@@ -273,7 +269,9 @@ display res env = do
                                        [  0,   0,   1,   0],
                                        [  0,   0,   0,   1]]
 
-  sequence_ $ map (foodoo ) posList
+  let now = env^.env_timer^.timer_now
+  let deg = realToFrac now
+  sequence_ $ map (foodoo deg ) posList
 
 
 
@@ -300,14 +298,14 @@ display res env = do
   GLFW.swapBuffers
 
   where 
-    foodoo l = do
+    foodoo deg l = do
       let s = res_basicShader res
       let (a1, a2) = case l of
                         [] -> (200, 200)
                         (_,x:.y:.()) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
 
       let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
-      let rot   = (rotationY a1) `multmm` (rotationX a2) :: Mat44 GLfloat
+      let rot   = (rotationY (a1 + deg)) `multmm` (rotationX (a2 + deg)) :: Mat44 GLfloat
       uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)
       uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)
 

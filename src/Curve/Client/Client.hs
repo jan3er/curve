@@ -21,9 +21,9 @@ import           Network.Socket
 {-import qualified          Graphics.UI.GLUT as GLUT-}
 {-import           Graphics.Rendering.OpenGL-}
 
-import Graphics.Rendering.OpenGL as GL
-import Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL (($=))
+import qualified Graphics.Rendering.OpenGL as GL
+import qualified Graphics.UI.GLFW as GLFW
+import           Graphics.Rendering.OpenGL (($=))
 
 import           Curve.Network.Network
 import           Curve.Client.Types
@@ -34,92 +34,103 @@ import           Curve.Game.Misc
 
 start :: IO ()
 start = do
-  --connect to server
-  addrInfo <- getAddrInfo Nothing 
-                          (Just "127.0.0.1") 
-                          (Just "1337")
-  let serverAddr = head addrInfo
-  sock <- socket (addrFamily serverAddr) Stream defaultProtocol
-  connect sock (addrAddress serverAddr)
-  --create env
-  t     <- getCurrentTime
-  envar <- newMVar $ Env Map.empty
-                         sock
-                         (-1)
-                         False
-                         (diffUTCTime t t) --TODO: better way for default difference?
-                         t
-  --fork glfw
-  _ <- forkOS $ do
-  {-do-}
-    -- open window
-    _    <- GLFW.initialize
-    _    <- GLFW.openWindow (GL.Size 400 400) [GLFW.DisplayDepthBits 8, GLFW.DisplayAlphaBits 8] GLFW.Window
-    prog <- getProgName
-    _    <- getArgs
-    GLFW.windowTitle $= prog
+  --init envar, connect to server and fork connection handler
+  envar <- initEnvarAndConnect
+  _<- forkIO $ handleConnection envar
 
-    -- smoothing and antialiasing
-    GL.shadeModel $= GL.Smooth
-    GL.lineSmooth $= GL.Enabled
-    GL.blend      $= GL.Enabled
-    GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
-    GL.lineWidth  $= 1.5
+  -- open window
+  _    <- GLFW.initialize
+  _    <- GLFW.openWindow (GL.Size 400 400) [GLFW.DisplayDepthBits 8, GLFW.DisplayAlphaBits 8] GLFW.Window
+  prog <- getProgName
+  _    <- getArgs
+  GLFW.windowTitle $= prog
 
-    -- set the color to clear background
-    GL.clearColor $= Color4 0 0.1 0.1 1 
+  -- smoothing and antialiasing
+  -- set the color to clear background
+  GL.shadeModel $= GL.Smooth
+  GL.lineSmooth $= GL.Enabled
+  GL.blend      $= GL.Enabled
+  GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
+  GL.clearColor $= GL.Color4 0 0.1 0.1 1
+
+  -- init resources
+  iores <- newIORef =<< initResources
+
+  -- set GLFW callbacks
+  GLFW.windowSizeCallback  $= windowSizeCallback envar iores
+  GLFW.windowCloseCallback $= windowCloseCallback
+  GLFW.mousePosCallback    $= mousePosCallback   envar iores
+
+  forever $ do gameStep envar iores
     
-    -- set callbacks
-    GLFW.windowSizeCallback $= \ size@(GL.Size w h) -> do 
-        GL.viewport $= (GL.Position 0 0, size)
-    
-    GLFW.windowCloseCallback $= do
-        putStrLn "close"
-        GLFW.closeWindow
-        GLFW.terminate
-        _ <- exitWith ExitSuccess
-        return True 
- 
-    ioResources   <- newIORef =<< initResources
-    gameLoop envar ioResources
-    {-forever $ do GL.clear [GL.ColorBuffer] >> GLFW.swapBuffers-}
 
 
-    ----------------------
-    {-initialDisplayMode $= [DoubleBuffered, WithDepthBuffer]-}
-    {-(progname, _) <- getArgsAndInitialize-}
-    {-_             <- createWindow progname-}
-    {-ioResources   <- newIORef =<< initResources-}
-    {-displayCallback $= do res <- readIORef ioResources-}
-                          {-env <- readMVar envar-}
-                          {-display res env-}
-    {-passiveMotionCallback $= Just (mouseMotion envar)-}
-    {-gameLoop envar ioResources-}
+-- perform one game logic and render step
+gameStep :: MVar Env -> IORef Resources -> IO ()
+gameStep envar iores = forever $ do
 
-  --start message handler
-  sendMsg (CMsgHello "jan") sock
-  handleConnection envar
-
-gameLoop :: MVar Env -> IORef Resources -> IO ()
-gameLoop envar ioResources = forever $ do
   --drop all positions except for the first three
   let chropPosList = player_posList %~ (Data.List.take 3)
   let modifyTuple (nr, (player, c)) = (nr, (chropPosList player, c))
   modifyMVar' envar $ env_playerMap %~ (Map.fromList . (map modifyTuple) . Map.toList)
+
   --query time if necessary  TODO this is stil crap
-  {-env <- readMVar envar-}
-  {-diff <- diffUTCTime (env^.env_lastTimeQuery) <$> getCurrentTime-}
-  {-when (diff >= queryOffset) $ putStrLn "foo" -}
+  env <- readMVar envar
+  t   <- getCurrentTime
+  let now = diffUTCTime (addUTCTime (env^.env_timer^.timer_offset) t) (env^.env_timer^.timer_start)
+  modifyMVar' envar $ Control.Lens.set (env_timer . timer_now) now
+
+  let diff = floor $ toRational $ diffUTCTime t (env^.env_timer^.timer_lastQuery)
+  when ((diff >= queryOffset) && (not $ env^.env_timer^.timer_waitForResp)) $
+    do modifyMVar' envar $ (env_timer . timer_waitForResp) %~ not
+       modifyMVar' envar $ Control.Lens.set (env_timer . timer_lastQuery) t
+       sendMsg (MsgTime t) (env^.env_socket)
 
   --draw on screen
-  res <- readIORef ioResources
+  res <- readIORef iores
   env <- readMVar envar
-  display res env
+  render res env
+
+  {-(putStrLn . show) $ env^.env_timer^.timer_offset-}
+
+  -- display debug infos
+  {-env <- readMVar envar-}
+  {-putStrLn $ "--------- " ++ (show $ L.get env_nr env) ++ " -------------"-}
+  {-(putStrLn . show) env-}
+
+
+-----------------------------------------------------------------------------------
+-- CALLBACKS ----------------------------------------------------------------------
+-----------------------------------------------------------------------------------
+
+windowSizeCallback :: MVar Env -> IORef Resources -> GL.Size -> IO ()
+windowSizeCallback envar iores size@(GL.Size w h) = do 
+  GL.viewport $= (GL.Position 0 0, size)
+  putStrLn $ "size " ++ (show w) ++ " " ++ (show h)
+
+windowCloseCallback :: IO (Bool)
+windowCloseCallback = do
+  putStrLn "close"
+  -- TODO: create shutdown field in envar
+  exitWith ExitSuccess
+  return True
 
 
 
-mouseMotion :: MVar Env -> Position -> IO ()
-mouseMotion envar (Position _x _y) = do
+mousePosCallback :: MVar Env -> IORef Resources -> GL.Position -> IO ()
+mousePosCallback envar iores (GL.Position _x _y) = do
+  env <- takeMVar envar
+  t   <- getCurrentTime
+  let (x,y) = (fromIntegral _x, fromIntegral _y)
+  let msg = MsgPaddle { _MsgPaddle_pos = (t, x, y),
+                        _MsgPaddle_nr  = env^.env_nr }
+  sendMsg msg ( env^.env_socket )
+  putMVar envar $ appendPaddlePos msg env
+
+
+
+mouseMotion :: MVar Env -> GL.Position -> IO ()
+mouseMotion envar (GL.Position _x _y) = do
   {-putStrLn $ show (Position x y)-}
   env <- takeMVar envar
   t   <- getCurrentTime
@@ -128,10 +139,31 @@ mouseMotion envar (Position _x _y) = do
                         _MsgPaddle_nr  = env^.env_nr }
   sendMsg msg (env^.env_socket )
   putMVar envar $ appendPaddlePos msg env
-  -- display debug infos
-  {-env <- readMVar envar-}
-  {-putStrLn $ "--------- " ++ (show $ L.get env_nr env) ++ " -------------"-}
-  {-(putStrLn . show) env-}
+
+
+
+-----------------------------------------------------------------------------------
+-- GAME NETWORK LOGIC -------------------------------------------------------------
+-----------------------------------------------------------------------------------
+
+initEnvarAndConnect :: IO (MVar Env)
+initEnvarAndConnect = do
+  --connect to server
+  addrInfo <- getAddrInfo Nothing 
+                          (Just "127.0.0.1") 
+                          (Just "1337")
+  let serverAddr = head addrInfo
+  sock <- socket (addrFamily serverAddr) Stream defaultProtocol
+  connect sock (addrAddress serverAddr)
+  sendMsg (CMsgHello "jan") sock
+  --create env
+  t     <- getCurrentTime
+  let timer = Timer (diffUTCTime t t) t False (diffUTCTime t t) t
+  newMVar $ Env Map.empty
+                sock
+                (-1)
+                False
+                timer
 
 
 
@@ -144,31 +176,45 @@ handleConnection envar = do
     Just m  -> do handleMsg envar m
                   handleConnection envar
 
+
+
 handleMsg :: MVar Env -> Msg -> IO ()
 handleMsg envar msg = do
   case msg of
     SMsgWorld clients myNr isRunning -> do 
-      env <- takeMVar envar  
-      let playerMap =  Map.fromList $ map 
-            (\(nr, client)
-              -> let player = case Map.lookup nr (env^.env_playerMap ) of
-                                Nothing -> Player { _player_posList = [] }
-                                Just (p, _) -> p
-                 in (nr, (player, client)) )
-            clients
-      --modify and put back env
-      putMVar envar (env { _env_playerMap = playerMap,
+              env <- takeMVar envar  
+              let playerMap =  Map.fromList $ map 
+                    (\(nr, client)
+                      -> let player = case Map.lookup nr (env^.env_playerMap ) of
+                                        Nothing -> Player { _player_posList = [] }
+                                        Just (p, _) -> p
+                         in (nr, (player, client)) )
+                    clients
+              --modify and put back env
+              putMVar envar (env { _env_playerMap = playerMap,
 
-                           _env_socket    = env^.env_socket ,
-                           _env_nr        = myNr,
-                           _env_isRunning = isRunning })
-      -- display debug infos
-      putStrLn $ "--------- " ++ (show myNr) ++ " -------------"
-      withMVar envar $ (putStrLn . show)
+                                   _env_socket    = env^.env_socket ,
+                                   _env_nr        = myNr,
+                                   _env_isRunning = isRunning })
+              -- display debug infos
+              putStrLn $ "--------- " ++ (show myNr) ++ " -------------"
+              withMVar envar $ (putStrLn . show)
 
     MsgPaddle _ _ -> do
-      env <- takeMVar envar
-      putMVar envar $ appendPaddlePos msg env
+              env <- takeMVar envar
+              putMVar envar $ appendPaddlePos msg env
+
+    MsgTime t -> do
+              -- TODO this code looks ugly
+              env         <- readMVar envar
+              currentTime <- getCurrentTime
+              let lastQuery  = env^.env_timer^.timer_lastQuery
+              let rtt        = (diffUTCTime currentTime lastQuery) * 0.5
+              let serverTime = addUTCTime rtt t
+              let offset     = diffUTCTime currentTime serverTime
+              modifyMVar' envar $ Control.Lens.set (env_timer . timer_waitForResp) False
+              modifyMVar' envar $ Control.Lens.set (env_timer . timer_offset) offset
+
 
 
 appendPaddlePos :: Msg -> Env -> Env
