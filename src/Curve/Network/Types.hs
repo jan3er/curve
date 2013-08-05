@@ -7,11 +7,10 @@ module Curve.Network.Types where
 import           Data.Time
 import           Data.Typeable
 import           Data.Data
-import           Data.Vec
-
 import           Control.Lens
 
 import           Curve.Game.Types
+
 
 data Client = Client {
   _cl_nick     :: String,
@@ -22,10 +21,10 @@ makeLenses ''Client
 
 -- represent messages
 data Msg = CMsgHello  { _CMsgHello_nick      :: String }
-         |  MsgPaddle { _MsgPaddle_id        :: Int
+         |  MsgPaddle { _MsgPaddle_nr        :: Int
                       , _MsgPaddle_pos       :: (UTCTime, Float, Float) }
          | SMsgWorld  { _SMsgWorld_clients   :: [(Int, Maybe Client)]
-                      , _SMsgWorld_clientId  :: Int
+                      , _SMsgWorld_clientNr  :: Int
                       , _SMsgWorld_isRunning :: Bool }
          |  MsgUnknown deriving (Data, Typeable, Show)
 makeLenses ''Msg

@@ -24,7 +24,7 @@ type PlayerMap = Map.Map Int (Player, Maybe Client)
 data Env = Env 
   { _env_playerMap   :: PlayerMap
   , _env_socket      :: Socket
-  , _env_id          :: Int
+  , _env_nr          :: Int
   , _env_isRunning   :: Bool
   {-, _env_currentTime :: UTCTime-}
   } deriving Show

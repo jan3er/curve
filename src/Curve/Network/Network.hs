@@ -6,10 +6,7 @@ module Curve.Network.Network (
   recvMsg
   ) where
 
-import           Data.Time
 import           Data.Aeson.Generic
-import           Data.Typeable
-import           Data.Data
 
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
@@ -20,7 +17,7 @@ import           Network.Socket.ByteString
 import           Curve.Network.Types        
 
 
--- TODO? make creators for server/client sockets
+-- TODO make creators for server/client sockets
 
 -- receive a message over socket
 -- returns nothing if connection is dead

@@ -40,7 +40,7 @@ newEnv :: Env
 newEnv = Env { _env_playerMap = Map.empty,
                _env_isRunning = False }
             
--- add a new client-player-pair to the pm, returns id of new entry
+-- add a new client-player-pair to the pm, returns nr of new entry
 addClient :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)
 addClient pm sock nick time =
   let client = SClient { _scl_socket   = sock,
@@ -50,12 +50,12 @@ addClient pm sock nick time =
                                                 }
                        }
       player = Player { _player_posList = [] }
-      id = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
-  in (Map.insert id (player, Just client) pm, id)
+      nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
+  in (Map.insert nr (player, Just client) pm, nr)
 
--- mark client with this id as dead
+-- mark client with this nr as dead
 killClient :: Int -> PlayerMap -> PlayerMap
-killClient id pm = Map.alter f id pm
+killClient nr pm = Map.alter f nr pm
   where 
     f Nothing            = Nothing
     f (Just(p, Nothing)) = Just(p, Nothing) 
