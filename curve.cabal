@@ -42,7 +42,7 @@ executable CurveClient
                       ,containers
                       ,Vec
                       ,linear
-                      ,GLUT
+                      ,GLFW
                       ,OpenGL
                       ,OpenGLRaw
                       ,GLUtil

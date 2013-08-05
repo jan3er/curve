@@ -15,8 +15,8 @@ import           Foreign.Storable (sizeOf)
 import           Foreign.Ptr
 import           Graphics.GLUtil.Camera3D (deg2rad)
 
-import qualified Graphics.UI.GLUT as GLUT
-import           Graphics.Rendering.OpenGL hiding (perspective)
+import qualified Graphics.UI.GLFW as GLFW
+import           Graphics.Rendering.OpenGL as GL hiding (perspective)
 import           Graphics.Rendering.OpenGL.Raw
 import           Graphics.GLUtil
 import           Graphics.GLUtil.VertexArrayObjects
@@ -97,29 +97,29 @@ cube w = (concatMap (\(a,b,c) -> [a,b,c]) )
 
 
 
-draw :: Resources -> IO ()
-draw r = do
-  let s = res_basicShader r
+{-draw :: Resources -> IO ()-}
+{-draw r = do-}
+  {-let s = res_basicShader r-}
 
-  clearColor $= Color4 0 0.1 0.1 1
-  clear [ColorBuffer, DepthBuffer]
-  depthMask $= Enabled
-  depthFunc $= Just Lequal
-  currentProgram $= Just (basic_program s)
+  {-clearColor $= Color4 0 0.1 0.1 1-}
+  {-clear [ColorBuffer, DepthBuffer]-}
+  {-depthMask $= Enabled-}
+  {-depthFunc $= Just Lequal-}
+  {-currentProgram $= Just (basic_program s)-}
 
-  uniformVec (basic_uColor s)      $= [1,0,1]
-  uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],
-                                       [  0,   1,   0,   0],
-                                       [  0,   0,   1,   0],
-                                       [  0,   0,   0,   1]]
+  {-uniformVec (basic_uColor s)      $= [1,0,1]-}
+  {-uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],-}
+                                       {-[  0,   1,   0,   0],-}
+                                       {-[  0,   0,   1,   0],-}
+                                       {-[  0,   0,   0,   1]]-}
 
-  let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
-  let rot   = (rotationX 1) `multmm` (rotationY 1)
-  uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)
-  uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)
+  {-let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)-}
+  {-let rot   = (rotationX 1) `multmm` (rotationY 1)-}
+  {-uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)-}
+  {-uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)-}
 
-  drawMyVAO (res_paddleVAO r)
-  GLUT.swapBuffers
+  {-drawMyVAO (res_paddleVAO r)-}
+  {-GLFW.swapBuffers-}
 
 
 
@@ -244,12 +244,16 @@ initResources = do
   vao <- makePaddleVAO s
   return $ Resources s vao
 
-render :: IORef Resources -> Env -> IO ()
-render ioRes env = do 
-  win <- (get GLUT.currentWindow)
-  GLUT.postRedisplay win
-  GLUT.mainLoopEvent
-  
+{-render :: IORef Resources -> Env -> IO ()-}
+{-render ioRes env = do -}
+  {-res <- readIORef ioRes-}
+  {-display res env-}
+
+render :: [(GLfloat, GLfloat)] -> IO ()
+render l = do
+  GL.renderPrimitive GL.Lines $ mapM_
+      (\ (x, y) -> GL.vertex (Vertex3 x y 0)) l
+ 
 
 display :: Resources -> Env -> IO ()
 display res env = do
@@ -261,11 +265,6 @@ display res env = do
   currentProgram $= Just (basic_program s)
   
   let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
-  {-putStrLn "--------" -}
-  {-putStrLn $ show posList-}
-  {-putStrLn "--------" -}
-  {-putStrLn $ "--------- " ++ (show $ _env_id env) ++ " -------------"-}
-  {-(putStrLn . show) env-}
 
   
   uniformVec (basic_uColor s)      $= [1,0,1]
@@ -275,6 +274,14 @@ display res env = do
                                        [  0,   0,   0,   1]]
 
   sequence_ $ map (foodoo ) posList
+
+
+
+  {-putStrLn "--------" -}
+  {-putStrLn $ show posList-}
+  {-putStrLn "--------" -}
+  {-putStrLn $ "--------- " ++ (show $ _env_id env) ++ " -------------"-}
+  {-(putStrLn . show) env-}
 
   {-let (b1, b2) = _env_paddlePos env-}
   {-let (b1, b2) = (200, 300)-}
@@ -290,7 +297,7 @@ display res env = do
 
   {-drawMyVAO (res_paddleVAO res)-}
 
-  GLUT.swapBuffers
+  GLFW.swapBuffers
 
   where 
     foodoo l = do
