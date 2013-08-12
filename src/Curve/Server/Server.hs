@@ -41,14 +41,20 @@ inputHandler envar = forever $ do
 
 
 
-
+-- creates a new clean env
+newEnv :: IO Env
+newEnv =
+    Env <$> pure Map.empty
+        <*> pure False
+        <*> getCurrentTime
+             
 
 -- the server entry point
 start :: IO ()
 start = withSocketsDo $ do
   putStrLn "server started"
   hSetBuffering stdout LineBuffering
-  envar <- newMVar newEnv
+  envar <- newMVar =<< newEnv
   _ <- forkIO $ inputHandler envar
   addrinfos <- getAddrInfo
                (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
@@ -146,7 +152,8 @@ handleMsg envar nr msg = do
                                 putMVar envar env 
 
     MsgTime _             -> do env <- readMVar envar
-                                m <- MsgTime <$> getCurrentTime
+                                t <- getCurrentTime
+                                let m = MsgTime $ diffUTCTime t (env^.env_startTime)
                                 sendMsg m $ (clientByNr env nr)^.scl_socket
 
     _ -> do logger "received unknown message" >> (putStrLn . show) msg

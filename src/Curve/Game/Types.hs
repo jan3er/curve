@@ -12,6 +12,6 @@ import Control.Lens
 -- represends one player
 data Player = Player {
       {-playerPosition :: (Float, Float) --replace this with vec-}
-      _player_posList :: [(UTCTime, Vec2 Float)]
+      _player_posList :: [(NominalDiffTime, Vec2 Float)]
     } deriving Show
 makeLenses ''Player

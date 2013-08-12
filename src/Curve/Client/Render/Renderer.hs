@@ -1,11 +1,12 @@
 {-# OPTIONS -Wall #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Curve.Client.Render.Renderer where
+module Curve.Client.Render.Renderer (initResources, renderStep, Resources) where
 
 import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.State
 import           Control.Lens
 
 import           Data.List
@@ -18,8 +19,9 @@ import           Foreign.Ptr
 import           Graphics.GLUtil.Camera3D (deg2rad)
 
 import qualified Graphics.UI.GLFW as GLFW
-import           Graphics.Rendering.OpenGL as GL hiding (perspective)
-import           Graphics.Rendering.OpenGL.Raw
+import           Graphics.Rendering.OpenGL as GL hiding (get, perspective)
+import qualified Graphics.Rendering.OpenGL as GL (get)
+{-import           Graphics.Rendering.OpenGL.Raw-}
 import           Graphics.GLUtil
 import           Graphics.GLUtil.VertexArrayObjects
 
@@ -27,102 +29,6 @@ import           Graphics.GLUtil.VertexArrayObjects
 
 import           Curve.Client.Types
 import           Curve.Game.Types
-
-
-{-data Shaders = Shaders { prog              :: Program-}
-                        {-,uColor            :: UniformLocation-}
-                        {-,uModelMatrix      :: UniformLocation-}
-                        {-,uViewMatrix       :: UniformLocation-}
-                        {-,uProjectionMatrix :: UniformLocation-}
-                        {-,vPosition         :: AttribLocation }-}
-
-{-data Resources = Resources { vertexBuffer  :: BufferObject-}
-                            {-,elementBuffer :: BufferObject-}
-                            {-,shaders       :: Shaders-}
-                            {-,fadeFactor    :: GLfloat }-}
-
-
-vertexBufferData :: [GLfloat]
-vertexBufferData = [-1, -1, 1, -1, -1, 1, 1, 1]
-
-cube :: GLfloat -> [GLfloat]
-cube w = (concatMap (\(a,b,c) -> [a,b,c]) )
-      [ ( w, w, w), ( w, w,-w), ( w,-w,-w), ( w,-w, w),
-        ( w, w, w), ( w, w,-w), (-w, w,-w), (-w, w, w),
-        ( w, w, w), ( w,-w, w), (-w,-w, w), (-w, w, w),
-        (-w, w, w), (-w, w,-w), (-w,-w,-w), (-w,-w, w),
-        ( w,-w, w), ( w,-w,-w), (-w,-w,-w), (-w,-w, w),
-        ( w, w,-w), ( w,-w,-w), (-w,-w,-w), (-w, w,-w) ]
-
-
-
-
-{-initShaders = do -}
-  {-vs :: VertexShader   <- loadShader "src/Curve/Client/Render/Shader/HelloWorld.vs"-}
-  {-fs :: FragmentShader <- loadShader "src/Curve/Client/Render/Shader/HelloWorld.fs"-}
-  {-p <- linkShaderProgram [vs] [fs]-}
-  {-Shaders p-}
-    {-<$> get (uniformLocation p "uColor")-}
-    {-<*> get (uniformLocation p "uModelMatrix")-}
-    {-<*> get (uniformLocation p "uViewMatrix")-}
-    {-<*> get (uniformLocation p "uProjectionMatrix")-}
-    {-<*> get (attribLocation  p "vPosition")-}
-
-{-makeResources =  Resources-}
-             {-<$> makeBuffer ArrayBuffer vertexBufferData-}
-             {-<*> makeBuffer ElementArrayBuffer elementBufferData-}
-             {-<*> initShaders-}
-             {-<*> pure 0.0   -}
-
-{-setupGeometry :: Resources -> IO ()-}
-{-setupGeometry r = let posn = vPosition (shaders r)-}
-                      {-stride = fromIntegral $ sizeOf (undefined::GLfloat) * 2-}
-                      {-vad = VertexArrayDescriptor 2 Float stride offset0-}
-                  {-in do bindBuffer ArrayBuffer   $= Just (vertexBuffer r)-}
-                        {-vertexAttribPointer posn $= (ToFloat, vad)-}
-                        {-vertexAttribArray posn   $= Enabled-}
-
-
-{-fooVAO :: GLfloat -> Shaders  -> IO (VertexArrayObject)-}
-{-fooVAO w s = do-}
-  {-ab  <- makeBuffer ArrayBuffer (cube w)-}
-
-  {-let vPos = vPosition s-}
-  {-let stride = fromIntegral $ sizeOf (undefined::GLfloat) * 3-}
-  {-let vad = VertexArrayDescriptor 3 Float stride offset0-}
-
-  {-makeVAO $ do-}
-    {-bindBuffer ArrayBuffer   $= Just ab-}
-    {-vertexAttribPointer vPos $= (ToFloat, vad)-}
-    {-vertexAttribArray vPos   $= Enabled-}
-
-
-
-
-{-draw :: Resources -> IO ()-}
-{-draw r = do-}
-  {-let s = res_basicShader r-}
-
-  {-clearColor $= Color4 0 0.1 0.1 1-}
-  {-clear [ColorBuffer, DepthBuffer]-}
-  {-depthMask $= Enabled-}
-  {-depthFunc $= Just Lequal-}
-  {-currentProgram $= Just (basic_program s)-}
-
-  {-uniformVec (basic_uColor s)      $= [1,0,1]-}
-  {-uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],-}
-                                       {-[  0,   1,   0,   0],-}
-                                       {-[  0,   0,   1,   0],-}
-                                       {-[  0,   0,   0,   1]]-}
-
-  {-let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)-}
-  {-let rot   = (rotationX 1) `multmm` (rotationY 1)-}
-  {-uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)-}
-  {-uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)-}
-
-  {-drawMyVAO (res_paddleVAO r)-}
-  {-GLFW.swapBuffers-}
-
 
 
 
@@ -181,13 +87,13 @@ initBasicShader = let
   in do 
   p <- shaderProgramFromPath "HelloWorld"
   BasicShader p posVad normVad texVad
-    <$> get (attribLocation  p "vPosition")
-    <*> get (attribLocation  p "vNormal")
-    <*> get (attribLocation  p "vTexCoord")
-    <*> get (uniformLocation p "uColor")
-    <*> get (uniformLocation p "uModelMatrix")
-    <*> get (uniformLocation p "uViewMatrix")
-    <*> get (uniformLocation p "uProjectionMatrix")
+    <$> GL.get (attribLocation  p "vPosition")
+    <*> GL.get (attribLocation  p "vNormal")
+    <*> GL.get (attribLocation  p "vTexCoord")
+    <*> GL.get (uniformLocation p "uColor")
+    <*> GL.get (uniformLocation p "uModelMatrix")
+    <*> GL.get (uniformLocation p "uViewMatrix")
+    <*> GL.get (uniformLocation p "uProjectionMatrix")
 
 --VAO-------------------------------
 
@@ -236,23 +142,11 @@ makePaddleVAO s = do
     printError
   return $ MyVAO vao Quads (4*6)
 
------------------------------------------------------------------------------
---PUBLIC---------------------------------------------------------------------
------------------------------------------------------------------------------
-
-initResources :: IO (Resources)
-initResources = do 
-  s <- initBasicShader
-  vao <- makePaddleVAO s
-  return $ Resources s vao
-
-{-render :: IORef Resources -> Env -> IO ()-}
-{-render ioRes env = do -}
-  {-res <- readIORef ioRes-}
-  {-display res env-}
+-----------------------------------------------
+--Render!
 
 
-render:: Resources -> Env -> IO ()
+render :: Resources -> Env -> IO ()
 render res env = do
   clearColor $= Color4 0 0.1 0.1 1
   clear [ColorBuffer, DepthBuffer]
@@ -269,8 +163,9 @@ render res env = do
                                        [  0,   0,   1,   0],
                                        [  0,   0,   0,   1]]
 
-  let now = env^.env_timer^.timer_now
-  let deg = realToFrac now
+  {-let now = env^.env_timer^.timer_now-}
+  {-let deg = realToFrac now-}
+  let deg = 42;
   sequence_ $ map (foodoo deg ) posList
 
 
@@ -310,5 +205,22 @@ render res env = do
       uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)
 
       drawMyVAO (res_paddleVAO res)
+
+
+-----------------------------------------------------------------------------
+--PUBLIC---------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+initResources :: IO (Resources)
+initResources = do 
+  s <- initBasicShader
+  vao <- makePaddleVAO s
+  return $ Resources s vao
+
+renderStep :: Env -> StateT Resources IO ()
+renderStep env = do
+    res <- get
+    liftIO $ render res env
+    return ()
 
 

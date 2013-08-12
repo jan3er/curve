@@ -25,8 +25,8 @@ data Msg = CMsgHello     { _CMsgHello_nick      :: String }
                          , _SMsgWorld_clientNr  :: Int
                          , _SMsgWorld_isRunning :: Bool }
          | MsgPaddle     { _MsgPaddle_nr        :: Int
-                         , _MsgPaddle_pos       :: (UTCTime, Float, Float) }
-         | MsgTime       { _MsgTime_time        :: UTCTime }
+                         , _MsgPaddle_pos       :: (NominalDiffTime, Float, Float) }
+         | MsgTime       { _MsgTime_time        :: NominalDiffTime }
          | MsgUnknown 
   deriving (Data, Typeable, Show)
 makeLenses ''Msg

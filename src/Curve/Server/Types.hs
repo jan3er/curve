@@ -18,27 +18,24 @@ import           Control.Lens
 ----------------------------------------
 
 -- represends one client
-data SClient = SClient {
-  _scl_socket   :: Socket,
-  _scl_client   :: Client
-} deriving Show
+data SClient = SClient 
+    { _scl_socket   :: Socket
+    , _scl_client   :: Client
+    } deriving Show
 makeLenses ''SClient
 
 type PlayerMap = Map.Map Int (Player, Maybe SClient)
 
 -- holds the enviornments state
-data Env = Env {
-  _env_playerMap   :: PlayerMap,
-  _env_isRunning   :: Bool
-} deriving Show
+data Env = Env 
+    { _env_playerMap   :: PlayerMap
+    , _env_isRunning   :: Bool
+    , _env_startTime   :: UTCTime
+    } deriving Show
 makeLenses ''Env
 
 -----------------------------------------
 
--- creates a new clean env
-newEnv :: Env
-newEnv = Env { _env_playerMap = Map.empty,
-               _env_isRunning = False }
             
 -- add a new client-player-pair to the pm, returns nr of new entry
 addClient :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)
