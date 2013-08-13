@@ -41,24 +41,22 @@ import           Curve.Game.Types
 --TYPES------------------------
 
 data BasicShader = BasicShader { basic_program           :: Program
-                                ,basic_vPositionVAD      :: VertexArrayDescriptor Int
-                                ,basic_vNormalVAD        :: VertexArrayDescriptor Int
-                                ,basic_vTexCoordVAD      :: VertexArrayDescriptor Int
-                                ,basic_vPosition         :: AttribLocation
-                                ,basic_vNormal           :: AttribLocation
-                                ,basic_vTexCoord         :: AttribLocation
-                                ,basic_uColor            :: UniformLocation
-                                ,basic_uModelMatrix      :: UniformLocation
-                                ,basic_uViewMatrix       :: UniformLocation
-                                ,basic_uProjectionMatrix :: UniformLocation }
+                               , basic_vPositionVAD      :: VertexArrayDescriptor Int
+                               , basic_vNormalVAD        :: VertexArrayDescriptor Int
+                               , basic_vTexCoordVAD      :: VertexArrayDescriptor Int
+                               , basic_vPosition         :: AttribLocation
+                               , basic_vNormal           :: AttribLocation
+                               , basic_vTexCoord         :: AttribLocation
+                               , basic_uColor            :: UniformLocation
+                               , basic_uModelMatrix      :: UniformLocation
+                               , basic_uViewMatrix       :: UniformLocation
+                               , basic_uProjectionMatrix :: UniformLocation
+                               }
 
 data MyVAO = MyVAO { vao_vao  :: VertexArrayObject
-                    ,vao_mode :: PrimitiveMode
-                    ,vao_num  :: NumArrayIndices } 
-
-drawMyVAO :: MyVAO -> IO ()
-drawMyVAO v = withVAO (vao_vao v) $ do drawArrays (vao_mode v) 0 (vao_num v)
-
+                   , vao_mode :: PrimitiveMode
+                   , vao_num  :: NumArrayIndices
+                   } 
 
 data Resources = Resources { res_basicShader :: BasicShader
                             ,res_paddleVAO   :: MyVAO }
@@ -66,81 +64,86 @@ data Resources = Resources { res_basicShader :: BasicShader
                             {-,shaders         :: Shaders-}
                             {-,fadeFactor      :: GLfloat }-}
 
+drawMyVAO :: MyVAO -> IO ()
+drawMyVAO v = withVAO (vao_vao v) $ do drawArrays (vao_mode v) 0 (vao_num v)
+
+
+
 --SHADER------------------------
 
 shaderProgramFromPath :: String -> IO (Program)
 shaderProgramFromPath name = 
-  let basePath = "src/Curve/Client/Render/Shader/"
-  in do
-  vs :: VertexShader   <- loadShader $ basePath ++ name ++ ".vs"
-  fs :: FragmentShader <- loadShader $ basePath ++ name ++ ".fs"
-  linkShaderProgram [vs] [fs]
+    let basePath = "src/Curve/Client/Render/Shader/"
+    in do
+    vs :: VertexShader   <- loadShader $ basePath ++ name ++ ".vs"
+    fs :: FragmentShader <- loadShader $ basePath ++ name ++ ".fs"
+    linkShaderProgram [vs] [fs]
 
 
 initBasicShader :: IO (BasicShader)
-initBasicShader = let 
-    fs = sizeOf (undefined::GLfloat)
-    stride  = fromIntegral (fs*8)
-    posVad  = VertexArrayDescriptor 3 Float stride offset0
-    normVad = VertexArrayDescriptor 3 Float stride (plusPtr offset0 (fs*3))
-    texVad  = VertexArrayDescriptor 2 Float stride (plusPtr offset0 (fs*6))
-  in do 
-  p <- shaderProgramFromPath "HelloWorld"
-  BasicShader p posVad normVad texVad
-    <$> GL.get (attribLocation  p "vPosition")
-    <*> GL.get (attribLocation  p "vNormal")
-    <*> GL.get (attribLocation  p "vTexCoord")
-    <*> GL.get (uniformLocation p "uColor")
-    <*> GL.get (uniformLocation p "uModelMatrix")
-    <*> GL.get (uniformLocation p "uViewMatrix")
-    <*> GL.get (uniformLocation p "uProjectionMatrix")
+initBasicShader = 
+    let fs = sizeOf (undefined::GLfloat)
+        stride  = fromIntegral (fs*8)
+        posVad  = VertexArrayDescriptor 3 Float stride offset0
+        normVad = VertexArrayDescriptor 3 Float stride (plusPtr offset0 (fs*3))
+        texVad  = VertexArrayDescriptor 2 Float stride (plusPtr offset0 (fs*6))
+    in do 
+    p <- shaderProgramFromPath "HelloWorld"
+    BasicShader p posVad normVad texVad
+        <$> GL.get (attribLocation  p "vPosition")
+        <*> GL.get (attribLocation  p "vNormal")
+        <*> GL.get (attribLocation  p "vTexCoord")
+        <*> GL.get (uniformLocation p "uColor")
+        <*> GL.get (uniformLocation p "uModelMatrix")
+        <*> GL.get (uniformLocation p "uViewMatrix")
+        <*> GL.get (uniformLocation p "uProjectionMatrix")
 
 --VAO-------------------------------
 
 paddleArray :: [GLfloat]
 paddleArray = (concatMap toArray) $ zip3 (paddlePosition 1 1 1) paddleNormal paddleTexCoord
-  where toArray ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
+    where toArray ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
 
 paddlePosition :: GLfloat -> GLfloat -> GLfloat -> [(GLfloat, GLfloat, GLfloat)]
 paddlePosition x y z = 
-  [ ( x, y, z), ( x, y,-z), ( x,-y,-z), ( x,-y, z),
-    ( x, y, z), ( x, y,-z), (-x, y,-z), (-x, y, z),
-    ( x, y, z), ( x,-y, z), (-x,-y, z), (-x, y, z),
-    (-x, y, z), (-x, y,-z), (-x,-y,-z), (-x,-y, z),
-    ( x,-y, z), ( x,-y,-z), (-x,-y,-z), (-x,-y, z),
-    ( x, y,-z), ( x,-y,-z), (-x,-y,-z), (-x, y,-z) ]
+    [ ( x, y, z), ( x, y,-z), ( x,-y,-z), ( x,-y, z),
+      ( x, y, z), ( x, y,-z), (-x, y,-z), (-x, y, z),
+      ( x, y, z), ( x,-y, z), (-x,-y, z), (-x, y, z),
+      (-x, y, z), (-x, y,-z), (-x,-y,-z), (-x,-y, z),
+      ( x,-y, z), ( x,-y,-z), (-x,-y,-z), (-x,-y, z),
+      ( x, y,-z), ( x,-y,-z), (-x,-y,-z), (-x, y,-z) ]
 
 paddleNormal :: [(GLfloat, GLfloat, GLfloat)]
 paddleNormal = concatMap (replicate 4)
-      [ ( 1, 0, 0),
-        ( 0, 1, 0),
-        ( 0, 0, 1),
-        (-1, 0, 0),
-        ( 0,-1, 0),
-        ( 0, 0,-1) ]
+    [ ( 1, 0, 0),
+      ( 0, 1, 0),
+      ( 0, 0, 1),
+      (-1, 0, 0),
+      ( 0,-1, 0),
+      ( 0, 0,-1) ]
 
 paddleTexCoord :: [(GLfloat, GLfloat)]
 paddleTexCoord = 
-  [ ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-    ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-    ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-    ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-    ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-    ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0) ]
+    [ ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
+      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
+      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
+      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
+      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
+      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0) ]
 
 makePaddleVAO :: BasicShader -> IO (MyVAO)
 makePaddleVAO s = do
-  vao <- makeVAO $ do
-    ab  <- makeBuffer ArrayBuffer paddleArray
-    bindBuffer ArrayBuffer $= Just ab
-    vertexAttribArray   (basic_vPosition s) $= Enabled
-    vertexAttribArray   (basic_vNormal   s) $= Enabled
-    vertexAttribArray   (basic_vTexCoord s) $= Enabled
-    vertexAttribPointer (basic_vPosition s) $= (ToFloat, (basic_vPositionVAD s))
-    vertexAttribPointer (basic_vNormal   s) $= (ToFloat, (basic_vNormalVAD   s))
-    vertexAttribPointer (basic_vTexCoord s) $= (ToFloat, (basic_vTexCoordVAD s))
-    printError
-  return $ MyVAO vao Quads (4*6)
+    vao <- makeVAO $ do
+        ab  <- makeBuffer ArrayBuffer paddleArray
+        bindBuffer ArrayBuffer $= Just ab
+        vertexAttribArray   (basic_vPosition s) $= Enabled
+        vertexAttribArray   (basic_vNormal   s) $= Enabled
+        vertexAttribArray   (basic_vTexCoord s) $= Enabled
+        vertexAttribPointer (basic_vPosition s) $= (ToFloat, (basic_vPositionVAD s))
+        vertexAttribPointer (basic_vNormal   s) $= (ToFloat, (basic_vNormalVAD   s))
+        vertexAttribPointer (basic_vTexCoord s) $= (ToFloat, (basic_vTexCoordVAD s))
+        printError
+    return $ MyVAO vao Quads (4*6)
 
 -----------------------------------------------
 --Render!
@@ -197,7 +200,7 @@ render res env = do
       let s = res_basicShader res
       let (a1, a2) = case l of
                         [] -> (200, 200)
-                        (_,x:.y:.()) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
+                        (_,x,y) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
 
       let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
       let rot   = (rotationY (a1 + deg)) `multmm` (rotationX (a2 + deg)) :: Mat44 GLfloat

@@ -5,13 +5,13 @@
 module Curve.Game.Types where
 
 import Data.Time
-import Data.Vec
+{-import Data.Vec-}
 
 import Control.Lens
 
 -- represends one player
 data Player = Player {
       {-playerPosition :: (Float, Float) --replace this with vec-}
-      _player_posList :: [(NominalDiffTime, Vec2 Float)]
+      _player_posList :: [(NominalDiffTime, Float, Float)]
     } deriving Show
 makeLenses ''Player
