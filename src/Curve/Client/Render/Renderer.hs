@@ -224,6 +224,7 @@ renderStep :: Env -> StateT Resources IO ()
 renderStep env = do
     res <- get
     liftIO $ render res env
+    {-liftIO GLFW.swapBuffers-}
     return ()
 
 

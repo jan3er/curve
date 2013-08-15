@@ -13,6 +13,7 @@ import           Curve.Network.Types
 import           Curve.Game.Types
 
 import           Control.Lens
+import           Control.Concurrent
 
 
 ----------------------------------------
@@ -42,7 +43,7 @@ addClient :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)
 addClient pm sock nick time =
   let client = SClient { _scl_socket   = sock,
                          _scl_client   = Client { _cl_nick    = nick,
-                                                  _cl_lastMsg = time,
+                                                  _cl_lastMsg = 0,
                                                   _cl_isAlive = True 
                                                 }
                        }
