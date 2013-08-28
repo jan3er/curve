@@ -239,7 +239,7 @@ handleMsg nr msg = do
             {-t <- getCurrentTime-}
             -- TODO put current time in env
             let msgOut = MsgTime 0
-            sock <- socketFromNr nr <$> get
+            sock <- view scl_socket . clientFromNr nr . view env_playerMap <$> get
             return [(sock, msgOut)]
 
         {-_ -> error "Server.handleMsg"-}
@@ -257,33 +257,18 @@ getWorldBroadcast env =
     
     in map
     {-in map-}
-        (\nr -> (socketFromNr nr env, msg nr ))
-        (getConnectedClients env)
+        (\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg nr ))
+        (connectedClientsNr (env^.env_playerMap))
     
 
 getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Socket,Msg)]
 getPaddleBroadcast nr tup env = 
     let msg = MsgPaddle nr tup
     in map
-        (\ nr' -> (socketFromNr nr' env, msg))
-        (filter (/= nr) $ getConnectedClients env)
+        (\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_playerMap), msg))
+        (filter (/= nr) $ connectedClientsNr (env^.env_playerMap))
         {-(getConnectedClients env)-}
         {-(traceShow (getConnectedClients env) (getConnectedClients env))-}
-
-
-socketFromNr :: Int -> Env -> Socket
-socketFromNr nr env = 
-    let entry = Map.lookup nr $ env^.env_playerMap
-        maybeSocket = view scl_socket <$> join (snd <$> entry)
-    in maybe (error "Server.socketFromNr") id maybeSocket
-
-
--- return nrs of all connected clients
-getConnectedClients :: Env -> [Int]
-getConnectedClients =
-    let isAlive  = maybe False (view $ scl_client.cl_isAlive) . view _2
-    in Set.toList . Map.keysSet . Map.filter isAlive . view env_playerMap   
-    {-\env -> traceShow (env^.env_playerMap) [0]-}
 
 
 -------------------------------------------------------------------------------

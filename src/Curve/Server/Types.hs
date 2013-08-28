@@ -5,7 +5,8 @@
 module Curve.Server.Types where 
 
 import           Data.Time
-import qualified Data.Map as Map
+import qualified Data.Map      as Map
+import qualified Data.Set      as Set
 import           Data.List
 import           Network.Socket
 
@@ -13,7 +14,9 @@ import           Curve.Network.Types
 import           Curve.Game.Types
 
 import           Control.Lens
-import           Control.Concurrent
+import           Control.Monad
+{-import           Control.Concurrent-}
+import           Control.Applicative
 
 
 ----------------------------------------
@@ -34,6 +37,33 @@ data Env = Env
     , _env_startTime   :: UTCTime
     } deriving Show
 makeLenses ''Env
+
+-----------------------------------------
+-- OPERATIONS ON SCLIENT
+
+-----------------------------------------
+--OPERATIONS ON PLAYERMAP
+
+-- get client or throw error if it does not exist
+clientFromNr :: Int -> PlayerMap -> SClient
+clientFromNr nr pm = 
+    let entry = Map.lookup nr pm
+        maybeClient = join (snd <$> entry)
+    in maybe (error "PlayerMap.socketFromNr") id maybeClient
+
+-- return nrs of all connected clients
+connectedClientsNr :: PlayerMap -> [Int]
+connectedClientsNr =
+    let isAlive  = maybe False (view $ scl_client.cl_isAlive) . view _2
+    in Set.toList . Map.keysSet . Map.filter isAlive
+
+-----------------------------------------
+-- OPERATIONS ON ENV
+
+
+
+
+
 
 -----------------------------------------
 
