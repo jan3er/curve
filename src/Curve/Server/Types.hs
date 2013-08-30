@@ -8,6 +8,7 @@ import           Data.Time
 import qualified Data.Map      as Map
 import qualified Data.Set      as Set
 import           Data.List
+import           Data.Maybe
 import           Network.Socket
 
 import           Curve.Network.Types
@@ -35,6 +36,7 @@ data Env = Env
     { _env_playerMap   :: PlayerMap
     , _env_isRunning   :: Bool
     , _env_startTime   :: UTCTime
+    , _env_currentTime :: NominalDiffTime
     } deriving Show
 makeLenses ''Env
 
@@ -49,7 +51,7 @@ clientFromNr :: Int -> PlayerMap -> SClient
 clientFromNr nr pm = 
     let entry = Map.lookup nr pm
         maybeClient = join (snd <$> entry)
-    in maybe (error "PlayerMap.socketFromNr") id maybeClient
+    in maybe (error "Server.Types.PlayerMap.socketFromNr") id maybeClient
 
 -- return nrs of all connected clients
 connectedClientsNr :: PlayerMap -> [Int]
@@ -57,11 +59,11 @@ connectedClientsNr =
     let isAlive  = maybe False (view $ scl_client.cl_isAlive) . view _2
     in Set.toList . Map.keysSet . Map.filter isAlive
 
--- add a new client-player-pair to the pm, returns nr of new entry
+-- add a new client-player-pair to the pm and return nr of new entry
 addClient :: SClient -> PlayerMap -> (PlayerMap, Int)
 addClient client pm =
-  let player = Player { _player_posList = [] }
-      nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
+  let player = Player []
+      nr = fromJust $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
   in (Map.insert nr (player, Just client) pm, nr)
 
 
@@ -71,7 +73,7 @@ removeOrKillClient :: Bool -> Int -> PlayerMap -> PlayerMap
 removeOrKillClient isRunning nr pm = 
     let f = if isRunning then kill else remove
     in 
-    Map.alter (maybe (error "Server.Types.killClient") f) nr pm
+    Map.alter (maybe (error "Server.Types.PlayerMap.removeOrKillClient") f) nr pm
   where 
     remove _    = Nothing
     kill (p, c) = Just(p, set (scl_client.cl_isAlive) False <$> c )

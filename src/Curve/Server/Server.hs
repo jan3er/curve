@@ -53,7 +53,7 @@ handleMsg nr msg = do
         MsgTime _ -> do 
             {-t <- getCurrentTime-}
             -- TODO put current time in env
-            let msgOut = MsgTime 0
+            msgOut <- MsgTime <$> use env_currentTime
             sock <- view scl_socket . clientFromNr nr . view env_playerMap <$> get
             return [(sock, msgOut)]
 
@@ -67,18 +67,17 @@ getWorldBroadcast env =
             (Map.toList $ env^.env_playerMap )
         msg nr = SMsgWorld clients nr (env^.env_isRunning)
     
-    in map
-    {-in map-}
-        (\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg nr ))
-        (connectedClientsNr (env^.env_playerMap))
+    in 
+    (\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg nr ))
+    <$> (connectedClientsNr (env^.env_playerMap))
     
 
 getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Socket,Msg)]
 getPaddleBroadcast nr tup env = 
     let msg = MsgPaddle nr tup
-    in map
-        (\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_playerMap), msg))
-        (filter (/= nr) $ connectedClientsNr (env^.env_playerMap))
+    in 
+    (\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_playerMap), msg))
+    <$> (filter (/= nr) $ connectedClientsNr (env^.env_playerMap))
         {-(getConnectedClients env)-}
         {-(traceShow (getConnectedClients env) (getConnectedClients env))-}
 
@@ -86,6 +85,7 @@ getPaddleBroadcast nr tup env =
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
 -------------------------------------------------------------------------------
+
 
 -- listen on listenSocket and call forkClient for every incomming connection
 forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId
@@ -106,19 +106,18 @@ forkClient mEnv sock handler = forkIO $ do
             -- if game is not running jet and CMsgHello was received, add playermap entry
             (Just (CMsgHello nick), False) -> do
                 putStrLn "acceptNewClient"
-                let player  = Player []
-                let sClient = SClient sock $ Client nick 0 True
-                let nextNr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList $ env^.env_playerMap)) [0..]
-                let newEnv = env & env_playerMap %~ Map.insert nextNr (player, Just sClient)
+                let sClient                = SClient sock $ Client nick 0 True
+                let (newPlayerMap, nextNr) = addClient sClient (env^.env_playerMap)
+                let newEnv = set env_playerMap newPlayerMap env
                 return (newEnv, Just nextNr)
 
             -- otherwise close socket
             _ -> do 
-                putStrLn "declineClient"
+                putStrLn "declineNewClient"
                 sClose sock
                 return (env, Nothing)
 
-    -- if client was added, broadcast world, then start messagehandler
+    -- if client was added, broadcast world, then start message-handler
     -- when the client disconnects, broadcast again
     case maybeNextNr of
         Just nextNr -> do
@@ -155,10 +154,12 @@ setupConnection =
         getEnv = Env <$> pure Map.empty
                      <*> pure False
                      <*> getCurrentTime
+                     <*> pure 0
     in do
     s <- getListenSocket
     e <- newMVar =<< getEnv
     return (s, e)
+
 
 -------------------------------------------------------------------------------
 -- most code ------------------------------------------------------------------
@@ -201,7 +202,11 @@ start = withSocketsDo $ do
 
 stepEnv :: StateT Env IO ()
 stepEnv = do
-    {-liftIO $ putStrLn "stepEnv"-}
+
+    {-TODO: make this strict!-}
+    {-now <- liftIO $ getCurrentTime-}
+    {-t   <- diffUTCTime now <$> use env_startTime-}
+    
     return ()
 
 
