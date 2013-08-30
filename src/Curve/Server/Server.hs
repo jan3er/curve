@@ -7,6 +7,7 @@ import           System.IO
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.State
+import           Control.Monad.Writer hiding (listen)
 import           Control.Applicative
 import           Debug.Trace
 import           Data.Time
@@ -215,10 +216,22 @@ import           Curve.Game.Types
 -- pure message handlers ------------------------------------------------------
 -------------------------------------------------------------------------------
 
-stupidHandler :: Int -> MsgHandler Env
-stupidHandler _ _ = do
-    return []
-    
+{-keyboardInput :: String -> Env -> Writer [String] Env-}
+{-keyboardInput line env = do-}
+    {-case line of-}
+        {-"toggle" -> do -}
+            {-tell ["toggling isRunning"]-}
+            {-todo: broadcast modified env!!!-}
+            {-return $ env & env_isRunning %~ not-}
+                        
+        {-"env" -> do -}
+            {-tell [show env]-}
+            {-return env-}
+
+        {-_ -> do -}
+            {-tell ["unknown"]-}
+            {-return env-}
+
 
 -- this is called for every incomming message
 handleMsg :: Int -> MsgHandler Env
@@ -242,10 +255,7 @@ handleMsg nr msg = do
             sock <- view scl_socket . clientFromNr nr . view env_playerMap <$> get
             return [(sock, msgOut)]
 
-        {-_ -> error "Server.handleMsg"-}
-        
-
-    {-_ -> do logger "received unknown message" >> (putStrLn . show) msg-}
+        _ -> error "Server.handleMsg: no handler for this message"
 
 
 getWorldBroadcast :: Env -> [(Socket,Msg)]
@@ -272,33 +282,47 @@ getPaddleBroadcast nr tup env =
 
 
 -------------------------------------------------------------------------------
--- most code ------------------------------------------------------------------
+-- connection handling --------------------------------------------------------
 -------------------------------------------------------------------------------
 
-{-handleMsg :: MsgHandler Env-}
-{-handleMsg msg = do-}
-    {-return []-}
+-- listen on listenSocket and call forkClient for every incomming connection
+forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ()
+forkListener mEnv listenSock handler= do
+    _<- forkIO $ forever $ do
+        -- add every new connection to Env
+        (sock, _) <- accept listenSock
+        forkClient mEnv sock handler
+        return ()
+    return ()
 
+-- if game is running close socket and return,
+-- otherwise add client to game and fork handler
+-- when the client disconnects the playermap entry is removed or killed depending on isRunning
 forkClient :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ()
 forkClient mEnv sock handler = do
 
     let player  = Player []
-    let sClient = SClient sock 
-                          $ Client "---" 0 True
+    let sClient = SClient sock $ Client "---" 0 True
 
     nextNr <- modifyMVar mEnv $ \env -> do
         let playerMap = env^.env_playerMap
         let nextNr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList playerMap)) [0..]
         let newEnv = env & env_playerMap %~ Map.insert nextNr (player, Just sClient)
-        return (newEnv, nextNr)
+        if (env^.env_isRunning)
+            then return (env, -1)
+            else return (newEnv, nextNr)
 
-    {-env <- modifyMVar_ mEnv $ execStateT $ do-}
-        {-playerMap <- use env_playerMap-}
-        {-let nextNr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList playerMap)) [0..]-}
-        {-env_playerMap %= Map.insert nextNr (player, Just sClient)-}
+    if (nextNr /= (-1))
+        then do
+            _<- forkIO $ do 
+                recvMsgAndHandle mEnv sock (handler nextNr)
+                modifyMVar_ mEnv $ execStateT $ do 
+                    isRunning <- use env_isRunning
+                    env_playerMap %= removeOrKillClient isRunning nextNr 
+            return ()
+        else do
+            sClose sock
 
-    _<- forkIO $ recvMsgAndHandle mEnv sock (handler nextNr)
-    return ()
 
 -- create listening socket
 setupConnection :: IO (Socket, MVar Env)
@@ -325,6 +349,29 @@ setupConnection =
     e <- newMVar =<< getEnv
     return (s, e)
 
+-------------------------------------------------------------------------------
+-- most code ------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+forkSimpleKeyboardHandler :: MVar Env -> IO ()
+forkSimpleKeyboardHandler mEnv = do
+    _<- forkIO $ forever $ do
+        line <- getLine
+        modifyMVar_ mEnv $ execStateT $ case line of
+            "toggle" -> do
+                liftIO $ putStrLn "toggleIsRunning"
+                env_isRunning %= not
+                list <- getWorldBroadcast <$> get
+                liftIO $ sendMsgList list 
+            "env" -> do
+                join $ (liftIO . putStrLn . show) <$> get
+                
+                
+            _ -> do
+                liftIO $ putStrLn "unknown command"
+    return ()
+
+    
 
 
 -- start one game
@@ -333,15 +380,22 @@ start = withSocketsDo $ do
     putStrLn "startServer"
     (listenSock, mEnv) <- setupConnection
 
-    _<- forever $ do
-        -- add every new connection to Env
-        (sock, _) <- accept listenSock
-        forkClient mEnv sock handleMsg
-        return ()
+    forkListener mEnv listenSock handleMsg
         
+    forkSimpleKeyboardHandler mEnv
 
-    _<- forever $ return ()
+    -- run main loop
+    _<- forever $ do
+        modifyMVar_ mEnv $ execStateT stepEnv
 
+    putStrLn "reached the end"
+    return ()
+
+
+
+stepEnv :: StateT Env IO ()
+stepEnv = do
+    {-liftIO $ putStrLn "stepEnv"-}
     return ()
 
         

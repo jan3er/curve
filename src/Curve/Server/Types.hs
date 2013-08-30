@@ -57,6 +57,26 @@ connectedClientsNr =
     let isAlive  = maybe False (view $ scl_client.cl_isAlive) . view _2
     in Set.toList . Map.keysSet . Map.filter isAlive
 
+-- add a new client-player-pair to the pm, returns nr of new entry
+addClient :: SClient -> PlayerMap -> (PlayerMap, Int)
+addClient client pm =
+  let player = Player { _player_posList = [] }
+      nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
+  in (Map.insert nr (player, Just client) pm, nr)
+
+
+-- remove client from player map if game is not running jet
+-- otherwise mark client with this nr as dead
+removeOrKillClient :: Bool -> Int -> PlayerMap -> PlayerMap
+removeOrKillClient isRunning nr pm = 
+    let f = if isRunning then kill else remove
+    in 
+    Map.alter (maybe (error "Server.Types.killClient") f) nr pm
+  where 
+    remove _    = Nothing
+    kill (p, c) = Just(p, set (scl_client.cl_isAlive) False <$> c )
+    
+
 -----------------------------------------
 -- OPERATIONS ON ENV
 
@@ -69,23 +89,16 @@ connectedClientsNr =
 
             
 -- add a new client-player-pair to the pm, returns nr of new entry
-addClient :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)
-addClient pm sock nick time =
-  let client = SClient { _scl_socket   = sock,
-                         _scl_client   = Client { _cl_nick    = nick,
-                                                  _cl_lastMsg = 0,
-                                                  _cl_isAlive = True 
-                                                }
-                       }
-      player = Player { _player_posList = [] }
-      nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
-  in (Map.insert nr (player, Just client) pm, nr)
+{-addClient' :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)-}
+{-addClient' pm sock nick time =-}
+  {-let client = SClient { _scl_socket   = sock,-}
+                         {-_scl_client   = Client { _cl_nick    = nick,-}
+                                                  {-_cl_lastMsg = 0,-}
+                                                  {-_cl_isAlive = True -}
+                                                {-}-}
+                       {-}-}
+      {-player = Player { _player_posList = [] }-}
+      {-nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]-}
+  {-in (Map.insert nr (player, Just client) pm, nr)-}
 
--- mark client with this nr as dead
-killClient :: Int -> PlayerMap -> PlayerMap
-killClient nr pm = Map.alter f nr pm
-  where 
-    f Nothing            = Nothing
-    f (Just(p, Nothing)) = Just(p, Nothing) 
-    {-f (Just(p, Just c))  = Just(p, Just (set (cl_isAlive . scl_client) False c))-}
-    f (Just(p, Just c))  = Just(p, Just (Control.Lens.set (scl_client.cl_isAlive) False c))
+

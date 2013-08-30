@@ -1,10 +1,11 @@
 {-# OPTIONS -Wall #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
-module Curve.Network.Network (
-    module Curve.Network.Types,
-    sendMsg,
-    recvMsgAndHandle,
-    recvMsg
+module Curve.Network.Network 
+    ( module Curve.Network.Types
+    , sendMsg
+    , sendMsgList
+    , recvMsg
+    , recvMsgAndHandle
     ) where
 
 import           Control.Concurrent
@@ -34,12 +35,13 @@ recvMsgAndHandle mEnv sock handler = do
     case trace ("=> incomming: " ++ show maybeMsg) maybeMsg of
         Nothing  ->   
             --TODO check sClose somewhere
-            sClose sock
+            {-sClose sock-}
+            return ()
             
         Just msg -> do
             modifyMVar_ mEnv $ execStateT $ do
                 list <- StateT (return . runState (handler msg))
-                liftIO $ sequence_ $ map (\ (s,m) -> sendMsg m s) list
+                liftIO $ sendMsgList list
                 liftIO $ putStrLn $ "sending: " ++ (show list)
             {-print =<< readMVar mEnv-}
             recvMsgAndHandle mEnv sock handler
@@ -73,3 +75,5 @@ sendMsg msg sock = do
   _ <- send sock (B.concat $ BL.toChunks line)
   return ()
 
+sendMsgList :: [(Socket, Msg)] -> IO ()
+sendMsgList list = sequence_ $ map (\ (s,m) -> sendMsg m s) list
