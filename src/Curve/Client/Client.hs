@@ -32,6 +32,8 @@ import           Curve.Client.Render.Renderer
 import           Curve.Game.Types
 import           Curve.Game.Misc
 
+import qualified Curve.Client.Timer as Timer
+
 
 
 
@@ -42,15 +44,13 @@ import           Curve.Game.Misc
 establishConnection :: String -> MsgHandler Env -> IO (MVar Env)
 establishConnection playerName msgHandler =
     let initEnv sock = do
-            t <- getCurrentTime
-            let timer  = Timer t t t False
             let window = Window $ GL.Position 0 0
-            return $ Env Map.empty
-                     sock
-                     (-1)
-                     False
-                     timer
-                     window
+            Env <$> pure Map.empty
+                <*> pure sock
+                <*> pure (-1)
+                <*> pure False
+                <*> Timer.initTime
+                <*> pure window
     in do
     --set buffering type maybe?
     {-hSetBuffering stdout LineBuffering-}
@@ -102,18 +102,20 @@ handleMsg msg = do
             modify $ appendPaddlePos nr (t,x,y)
             return []
 
-        MsgTime t ->
-            let timer = env^.env_timer
-                mediumLocalTime = 
-                    addUTCTime 
-                    (0.5 * diffUTCTime (timer^.timer_localTime) (timer^.timer_lastQuery))
-                    (timer^.timer_lastQuery) 
-                newReferenceTime =
-                    addUTCTime (-1*t) mediumLocalTime 
-            in do
-            env_timer.timer_referenceTime .= newReferenceTime
-            env_timer.timer_waitForResp   .= False           
+        MsgTime t -> do
+            env_timer %= Timer.serverUpdate (MsgTime t)
             return []
+            {-let timer = env^.env_timer-}
+                {-mediumLocalTime = -}
+                    {-addUTCTime -}
+                    {-(0.5 * diffUTCTime (timer^.timer_localTime) (timer^.timer_lastQuery))-}
+                    {-(timer^.timer_lastQuery) -}
+                {-newReferenceTime =-}
+                    {-addUTCTime (-1*t) mediumLocalTime -}
+            {-in do-}
+            {-env_timer.timer_referenceTime .= newReferenceTime-}
+            {-env_timer.timer_waitForResp   .= False           -}
+            {-return []-}
         
         _ -> error "Client.handleMsg"
             
@@ -138,33 +140,25 @@ mouseInput = do
     env_window.window_mousePos .= newPos
     when (newPos /= oldPos) $ do
         let (x, y) = (fromIntegral _x, fromIntegral _y)
-        timer      <- use $ env_timer
-        globalTime <- liftIO $ toGlobalTime timer <$> getCurrentTime 
-        myNr       <- use $ env_nr
-        modify $ appendPaddlePos myNr (globalTime, x, y)
-
-        sock <- use $ env_socket
-        liftIO $ sendMsg (MsgPaddle myNr (globalTime, x, y)) sock
-    
+        env        <- get
+        globalTime <- Timer.getTime <$> use env_timer
+        modify $ appendPaddlePos (env^.env_nr) (globalTime, x, y)
+        liftIO $ sendMsg (MsgPaddle (env^.env_nr) (globalTime, x, y)) (env^.env_socket)
 
 
 -- keep timer up to date and in sync
 updateTimer :: StateT Env IO ()
 updateTimer = do
-    -- set localTime
-    currentTime <- liftIO $ getCurrentTime
-    env_timer.timer_localTime .= currentTime
+    oldTimer <- use env_timer
+    (maybeMsg, timer) <- liftIO $ Timer.ioUpdate oldTimer
+    env_timer .= timer
 
-    -- maybe send message
-    let queryInterval = 2
-    timer       <- use $ env_timer
-    let diff :: Float = realToFrac $ diffUTCTime (timer^.timer_localTime) (timer^.timer_lastQuery)
-    when ((diff >= queryInterval) && not (timer^.timer_waitForResp)) $ do
-        env_timer.timer_waitForResp .= True
-        env_timer.timer_lastQuery   .= currentTime
-
-        sock <- use env_socket
-        liftIO $ sendMsg (MsgTime 0) sock
+    case maybeMsg of
+        Nothing -> do 
+            return ()
+        Just msg -> do 
+            sock <- use env_socket
+            liftIO $ sendMsg msg sock
 
 
 initGL :: IO Resources 
@@ -203,6 +197,7 @@ stepEnv = do
     updateTimer
 
     -- delete all but the last three paddle positions
+    -- TODO: put this in playerMap
     modify $ env_playerMap.mapped._1.player_posList %~ Data.List.take 3
 
     {-env <- get-}

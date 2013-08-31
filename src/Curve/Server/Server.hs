@@ -109,6 +109,7 @@ forkClient mEnv sock handler = forkIO $ do
                 let sClient                = SClient sock $ Client nick 0 True
                 let (newPlayerMap, nextNr) = addClient sClient (env^.env_playerMap)
                 let newEnv = set env_playerMap newPlayerMap env
+                let newEnv = env & env_playerMap .~ newPlayerMap
                 return (newEnv, Just nextNr)
 
             -- otherwise close socket
@@ -182,8 +183,6 @@ forkSimpleKeyboardHandler mEnv = forkIO . forever $ do
             liftIO $ putStrLn "unknown command"
 
     
-
-
 -- start one game
 start :: IO ()
 start = withSocketsDo $ do
