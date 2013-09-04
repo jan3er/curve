@@ -30,14 +30,26 @@ import           Curve.Game.Types
 
 
 
+type MsgHandlerServer a = (MsgHandlerPre a, (Int -> MsgHandlerPure a), MsgHandlerPost a)
+
+-------------------------------------------------------------------------------
+-- IO message handlers --------------------------------------------------------
+-------------------------------------------------------------------------------
+
+handleMsgPre :: MsgHandlerPre Env
+handleMsgPre = do 
+    return ()
+
+handleMsgPost :: MsgHandlerPost Env
+handleMsgPost = return ()
 
 -------------------------------------------------------------------------------
 -- pure message handlers ------------------------------------------------------
 -------------------------------------------------------------------------------
 
 -- this is called for every incomming message
-handleMsg :: Int -> MsgHandler Env
-handleMsg nr msg = do
+handleMsgPure :: Int -> MsgHandlerPure Env
+handleMsgPure nr msg = do
     case msg of
 
         MsgPaddle _ (t, x, y) -> do 
@@ -88,7 +100,8 @@ getPaddleBroadcast nr tup env =
 
 
 -- listen on listenSocket and call forkClient for every incomming connection
-forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId
+forkListener :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
+{-forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId-}
 forkListener mEnv listenSock handler = forkIO . forever $ do
     (sock, _) <- accept listenSock
     forkClient mEnv sock handler
@@ -96,8 +109,8 @@ forkListener mEnv listenSock handler = forkIO . forever $ do
 -- if game is running close socket and return,
 -- otherwise add client to game and fork handler
 -- when the client disconnects the playermap entry is removed or killed, depending on isRunning
-forkClient :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId
-forkClient mEnv sock handler = forkIO $ do
+forkClient :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
+forkClient mEnv sock handlerServer = forkIO $ do
 
     maybeMsg <- recvMsg sock 
     maybeNextNr <- modifyMVar mEnv $ \env -> do
@@ -108,7 +121,6 @@ forkClient mEnv sock handler = forkIO $ do
                 putStrLn "acceptNewClient"
                 let sClient                = SClient sock $ Client nick 0 True
                 let (newPlayerMap, nextNr) = addClient sClient (env^.env_playerMap)
-                let newEnv = set env_playerMap newPlayerMap env
                 let newEnv = env & env_playerMap .~ newPlayerMap
                 return (newEnv, Just nextNr)
 
@@ -125,7 +137,10 @@ forkClient mEnv sock handler = forkIO $ do
             _ <- forkIO $ do
                 putStrLn "fork recvMsgAndHandle"
                 sendMsgList . getWorldBroadcast =<< readMVar mEnv
-                recvMsgAndHandle mEnv sock (handler nextNr)
+
+                let handler = handlerServer & _2 %~ (\f -> f nextNr)
+                recvMsgAndHandle mEnv sock handler
+
                 modifyMVar_ mEnv $ execStateT $ do
                     isRunning <- use env_isRunning
                     env_playerMap %= removeOrKillClient isRunning nextNr
@@ -188,7 +203,7 @@ start :: IO ()
 start = withSocketsDo $ do
     putStrLn "startServer"
     (listenSock, mEnv) <- setupConnection
-    _<- forkListener mEnv listenSock handleMsg
+    _<- forkListener mEnv listenSock (handleMsgPre , handleMsgPure, handleMsgPost)
     _<- forkSimpleKeyboardHandler mEnv
 
     -- run main loop

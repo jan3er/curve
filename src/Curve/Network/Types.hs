@@ -36,4 +36,8 @@ data Msg = CMsgHello     { _CMsgHello_nick      :: String }
   deriving (Data, Typeable, Show)
 makeLenses ''Msg
 
-type MsgHandler a = Msg -> State a [(Socket, Msg)]
+
+type MsgHandlerPure a = Msg -> State a [(Socket, Msg)]
+type MsgHandlerPre  a = StateT a IO ()
+type MsgHandlerPost a = StateT a IO ()
+type MsgHandler     a = (MsgHandlerPre a, MsgHandlerPure a, MsgHandlerPost a)

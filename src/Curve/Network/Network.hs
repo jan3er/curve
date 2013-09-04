@@ -6,9 +6,11 @@ module Curve.Network.Network
     , sendMsgList
     , recvMsg
     , recvMsgAndHandle
+    {-, recvMsgAndHandle2-}
     ) where
 
 import           Control.Concurrent
+import           Control.Lens
 import           Control.Monad.State
 
 import           Data.Aeson.Generic
@@ -40,7 +42,9 @@ recvMsgAndHandle mEnv sock handler = do
             
         Just msg -> do
             modifyMVar_ mEnv $ execStateT $ do
-                list <- StateT (return . runState (handler msg))
+                handler^._1
+                list <- StateT (return . runState ((handler^._2) msg))
+                handler^._3
                 liftIO $ sendMsgList list
                 liftIO $ putStrLn $ "sending: " ++ (show list)
             {-print =<< readMVar mEnv-}

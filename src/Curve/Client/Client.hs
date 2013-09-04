@@ -78,8 +78,8 @@ forkMsgHandler mEnv handler = do
 -- pure message handlers ------------------------------------------------------
 -------------------------------------------------------------------------------
 
-handleMsg :: MsgHandler Env
-handleMsg msg = do
+handleMsgPure :: MsgHandlerPure Env
+handleMsgPure msg = do
     env <- get
     case msg of
         SMsgWorld clients myNr isRunning -> 
@@ -105,17 +105,6 @@ handleMsg msg = do
         MsgTime t -> do
             env_timer %= Timer.serverUpdate (MsgTime t)
             return []
-            {-let timer = env^.env_timer-}
-                {-mediumLocalTime = -}
-                    {-addUTCTime -}
-                    {-(0.5 * diffUTCTime (timer^.timer_localTime) (timer^.timer_lastQuery))-}
-                    {-(timer^.timer_lastQuery) -}
-                {-newReferenceTime =-}
-                    {-addUTCTime (-1*t) mediumLocalTime -}
-            {-in do-}
-            {-env_timer.timer_referenceTime .= newReferenceTime-}
-            {-env_timer.timer_waitForResp   .= False           -}
-            {-return []-}
         
         _ -> error "Client.handleMsg"
             
@@ -178,7 +167,7 @@ start = do
     startRes <- initGL
 
     -- connect to server
-    mEnv <- establishConnection "jan" handleMsg
+    mEnv <- establishConnection "jan" (return (), handleMsgPure, return ())
 
     
     -- start loop
