@@ -19,6 +19,7 @@ import           Control.Monad
 {-import           Control.Concurrent-}
 import           Control.Applicative
 
+import qualified Curve.Server.Timer as Timer
 
 ----------------------------------------
 
@@ -35,8 +36,7 @@ type PlayerMap = Map.Map Int (Player, Maybe SClient)
 data Env = Env 
     { _env_playerMap   :: PlayerMap
     , _env_isRunning   :: Bool
-    , _env_startTime   :: UTCTime
-    , _env_currentTime :: NominalDiffTime
+    , _env_timer       :: Timer.Timer
     } deriving Show
 makeLenses ''Env
 

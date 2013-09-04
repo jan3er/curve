@@ -22,6 +22,7 @@ import           Network.Socket
 import           Control.Lens
 
 import           Curve.Server.Types
+import qualified Curve.Server.Timer as Timer
 import           Curve.Server.Misc
 import           Curve.Network.Network
 
@@ -38,7 +39,8 @@ type MsgHandlerServer a = (MsgHandlerPre a, (Int -> MsgHandlerPure a), MsgHandle
 
 handleMsgPre :: MsgHandlerPre Env
 handleMsgPre = do 
-    return ()
+    timer <- (\t -> liftIO $ Timer.ioUpdate t) =<< use env_timer
+    env_timer .= timer
 
 handleMsgPost :: MsgHandlerPost Env
 handleMsgPost = return ()
@@ -63,9 +65,8 @@ handleMsgPure nr msg = do
 
 
         MsgTime _ -> do 
-            {-t <- getCurrentTime-}
             -- TODO put current time in env
-            msgOut <- MsgTime <$> use env_currentTime
+            msgOut <- MsgTime . Timer.getTime <$> use env_timer
             sock <- view scl_socket . clientFromNr nr . view env_playerMap <$> get
             return [(sock, msgOut)]
 
@@ -169,8 +170,7 @@ setupConnection =
         getEnv :: IO Env
         getEnv = Env <$> pure Map.empty
                      <*> pure False
-                     <*> getCurrentTime
-                     <*> pure 0
+                     <*> Timer.initTime
     in do
     s <- getListenSocket
     e <- newMVar =<< getEnv
