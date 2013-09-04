@@ -1,7 +1,5 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Curve.Server.Timer where
 
@@ -9,8 +7,7 @@ import           Data.Time
 import           Control.Lens
 import           Control.Monad.State
 
-import           Curve.Network.Types
-
+----------------------------------------
 
 type GameTime = NominalDiffTime
 
@@ -20,10 +17,7 @@ data Timer = Timer
     } deriving Show
 makeLenses ''Timer
 
-queryInterval :: Float
-queryInterval = 2
-
---------------------------------------------------------------------------------------
+----------------------------------------
 
 -- get a brand new timer
 initTime :: IO Timer

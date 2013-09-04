@@ -1,35 +1,30 @@
 {-# OPTIONS -Wall #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Curve.Server.Server where
 
-import           System.IO
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.State
-import           Control.Monad.Writer hiding (listen)
 import           Control.Applicative
 import           Debug.Trace
 import           Data.Time
 import           Data.Maybe
 import           Data.List
 import qualified Data.Map.Lazy as Map
-import qualified Data.Set      as Set
 {-import           Data.List-}
 
 import           Network.Socket
 
 import           Control.Lens
 
-import           Curve.Server.Types
+import           Curve.Server.Env
+import           Curve.Server.PlayerMap
 import qualified Curve.Server.Timer as Timer
-import           Curve.Server.Misc
+
 import           Curve.Network.Network
 
-import           Curve.Game.Misc
-import           Curve.Game.Types
-
-
+----------------------------------------
 
 type MsgHandlerServer a = (MsgHandlerPre a, (Int -> MsgHandlerPure a), MsgHandlerPost a)
 
@@ -216,11 +211,6 @@ start = withSocketsDo $ do
 
 stepEnv :: StateT Env IO ()
 stepEnv = do
-
-    {-TODO: make this strict!-}
-    {-now <- liftIO $ getCurrentTime-}
-    {-t   <- diffUTCTime now <$> use env_startTime-}
-    
     return ()
 
 

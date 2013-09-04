@@ -1,14 +1,10 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Curve.Client.Types where 
 
-import           Data.Time
 import qualified Data.Map as Map
-
 import           Network.Socket
-
 import           Control.Lens
 
 import qualified Graphics.Rendering.OpenGL as GL

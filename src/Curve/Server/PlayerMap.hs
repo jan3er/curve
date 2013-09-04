@@ -1,10 +1,16 @@
 {-# OPTIONS -Wall #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Curve.Server.Types where 
+module Curve.Server.PlayerMap
+    {-( clientFromNr-}
+    {-, connectedClientsNr-}
+    {-, addClient-}
+    {-, removeOrKillClient-}
+    {-, SClient-}
+    {-, PlayerMap-}
+    {-)-}
+    where 
 
-import           Data.Time
 import qualified Data.Map      as Map
 import qualified Data.Set      as Set
 import           Data.List
@@ -16,10 +22,7 @@ import           Curve.Game.Types
 
 import           Control.Lens
 import           Control.Monad
-{-import           Control.Concurrent-}
 import           Control.Applicative
-
-import qualified Curve.Server.Timer as Timer
 
 ----------------------------------------
 
@@ -32,19 +35,7 @@ makeLenses ''SClient
 
 type PlayerMap = Map.Map Int (Player, Maybe SClient)
 
--- holds the enviornments state
-data Env = Env 
-    { _env_playerMap   :: PlayerMap
-    , _env_isRunning   :: Bool
-    , _env_timer       :: Timer.Timer
-    } deriving Show
-makeLenses ''Env
-
------------------------------------------
--- OPERATIONS ON SCLIENT
-
------------------------------------------
---OPERATIONS ON PLAYERMAP
+----------------------------------------
 
 -- get client or throw error if it does not exist
 clientFromNr :: Int -> PlayerMap -> SClient
@@ -78,29 +69,3 @@ removeOrKillClient isRunning nr pm =
     remove _    = Nothing
     kill (p, c) = Just(p, set (scl_client.cl_isAlive) False <$> c )
     
-
------------------------------------------
--- OPERATIONS ON ENV
-
-
-
-
-
-
------------------------------------------
-
-            
--- add a new client-player-pair to the pm, returns nr of new entry
-{-addClient' :: PlayerMap -> Socket -> String -> UTCTime -> (PlayerMap, Int)-}
-{-addClient' pm sock nick time =-}
-  {-let client = SClient { _scl_socket   = sock,-}
-                         {-_scl_client   = Client { _cl_nick    = nick,-}
-                                                  {-_cl_lastMsg = 0,-}
-                                                  {-_cl_isAlive = True -}
-                                                {-}-}
-                       {-}-}
-      {-player = Player { _player_posList = [] }-}
-      {-nr = (\(Just x) -> x) $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]-}
-  {-in (Map.insert nr (player, Just client) pm, nr)-}
-
-

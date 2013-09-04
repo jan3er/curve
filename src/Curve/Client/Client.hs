@@ -1,19 +1,18 @@
 {-# OPTIONS -Wall #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Curve.Client.Client where
 
 import           System.Environment (getArgs, getProgName)
-import           System.Exit
+{-import           System.Exit-}
 import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.State
 import           Control.Lens
 
-import           Debug.Trace
+{-import           Debug.Trace-}
 
 import           Data.Time
 import           Data.List
@@ -30,7 +29,6 @@ import           Curve.Network.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Types
-import           Curve.Game.Misc
 
 import qualified Curve.Client.Timer as Timer
 

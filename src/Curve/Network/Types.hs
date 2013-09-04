@@ -1,5 +1,5 @@
 {-# OPTIONS -Wall #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards, DeriveDataTypeable, ExistentialQuantification, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Curve.Network.Types where
@@ -11,11 +11,7 @@ import           Control.Lens
 import           Control.Monad.State
 import           Network.Socket
 
-import           Curve.Game.Types
-
-
 type NetworkTime = NominalDiffTime
-
 
 data Client = Client {
   _cl_nick     :: String,
