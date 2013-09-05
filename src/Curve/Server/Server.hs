@@ -162,13 +162,9 @@ setupConnection =
             listen listenSock 5
             return listenSock
 
-        getEnv :: IO Env
-        getEnv = Env <$> pure Map.empty
-                     <*> pure False
-                     <*> Timer.initTime
     in do
     s <- getListenSocket
-    e <- newMVar =<< getEnv
+    e <- newMVar =<< initEnv
     return (s, e)
 
 
@@ -202,15 +198,25 @@ start = withSocketsDo $ do
     _<- forkSimpleKeyboardHandler mEnv
 
     -- run main loop
-    _<- forever $ do modifyMVar_ mEnv $ execStateT stepEnv
+    _<- forever $ do 
+            threadDelay delayTime 
+            modifyMVar_ mEnv $ execStateT stepEnv
+
 
     putStrLn "reached the end"
     return ()
 
 
 
+delayTime :: Int
+delayTime = 1 * 1000000
+
 stepEnv :: StateT Env IO ()
 stepEnv = do
-    return ()
+    env <- get
+    let msg = SMsgBall 0 (0,0,0) (0,0,0) (0,0,0)
 
-
+    let tuples = (\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg ))
+                 <$> (connectedClientsNr (env^.env_playerMap))
+    
+    liftIO $ sendMsgList tuples

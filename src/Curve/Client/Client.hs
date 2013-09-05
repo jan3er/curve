@@ -28,7 +28,7 @@ import           Graphics.Rendering.OpenGL (($=))
 import           Curve.Network.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
-import           Curve.Game.Types
+import           Curve.Game.Player
 
 import qualified Curve.Client.Timer as Timer
 
@@ -40,16 +40,7 @@ import qualified Curve.Client.Timer as Timer
 -------------------------------------------------------------------------------
 
 establishConnection :: String -> MsgHandler Env -> IO (MVar Env)
-establishConnection playerName msgHandler =
-    let initEnv sock = do
-            let window = Window $ GL.Position 0 0
-            Env <$> pure Map.empty
-                <*> pure sock
-                <*> pure (-1)
-                <*> pure False
-                <*> Timer.initTime
-                <*> pure window
-    in do
+establishConnection playerName msgHandler = do
     --set buffering type maybe?
     {-hSetBuffering stdout LineBuffering-}
     addrInfo <- getAddrInfo Nothing 
@@ -104,7 +95,10 @@ handleMsgPure msg = do
             env_timer %= Timer.serverUpdate (MsgTime t)
             return []
         
-        _ -> error "Client.handleMsg"
+        SMsgBall t pos dir spin -> do
+            return []
+
+        _ -> error "Error: Client.handleMsg"
             
 
 
@@ -120,6 +114,15 @@ appendPaddlePos nr posTuple =
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
+-- set env's windowsize to actual windowsize
+windowResize :: StateT Env IO ()
+windowResize = do
+    size <- liftIO $ GL.get GLFW.windowSize
+    env_window.window_size .= size
+    liftIO $ GL.viewport $= (GL.Position 0 0, size)
+
+-- set mouse pos to server
+-- TODO: return bool if changed instead of actually sending the message?
 mouseInput :: StateT Env IO ()
 mouseInput = do
     oldPos                     <- use $ env_window.window_mousePos
@@ -179,6 +182,7 @@ stepEnv :: StateT Env IO ()
 stepEnv = do
     -- react to mouse movement
     mouseInput
+    windowResize
 
     -- keep timer up to date and in sync
     updateTimer

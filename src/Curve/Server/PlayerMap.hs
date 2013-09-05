@@ -18,7 +18,7 @@ import           Data.Maybe
 import           Network.Socket
 
 import           Curve.Network.Types
-import           Curve.Game.Types
+import           Curve.Game.Player
 
 import           Control.Lens
 import           Control.Monad
@@ -64,7 +64,7 @@ removeOrKillClient :: Bool -> Int -> PlayerMap -> PlayerMap
 removeOrKillClient isRunning nr pm = 
     let f = if isRunning then kill else remove
     in 
-    Map.alter (maybe (error "Server.Types.PlayerMap.removeOrKillClient") f) nr pm
+    Map.alter (maybe (error "Server.PlayerMap.removeOrKillClient") f) nr pm
   where 
     remove _    = Nothing
     kill (p, c) = Just(p, set (scl_client.cl_isAlive) False <$> c )

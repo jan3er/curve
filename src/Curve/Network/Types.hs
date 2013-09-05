@@ -21,13 +21,21 @@ data Client = Client {
 makeLenses ''Client
 
 
-data Msg = CMsgHello     { _CMsgHello_nick      :: String }
+data Msg = CMsgHello     { _CMsgHello_nick      :: String
+                         }
          | SMsgWorld     { _SMsgWorld_clients   :: [(Int, Maybe Client)]
                          , _SMsgWorld_clientNr  :: Int
-                         , _SMsgWorld_isRunning :: Bool }
+                         , _SMsgWorld_isRunning :: Bool
+                         }
+         | SMsgBall      { _SMsgBall_time       :: NominalDiffTime
+                         , _SMsgBall_position   :: (Float, Float, Float)
+                         , _SMsgBall_direction  :: (Float, Float, Float)
+                         , _SMsgBall_spin       :: (Float, Float, Float) 
+                         }
          | MsgPaddle     { _MsgPaddle_nr        :: Int
                          , _MsgPaddle_pos       :: (NetworkTime, Float, Float) }
-         | MsgTime       { _MsgTime_time        :: NominalDiffTime }
+         | MsgTime       { _MsgTime_time        :: NominalDiffTime 
+                         }
          | MsgUnknown 
   deriving (Data, Typeable, Show)
 makeLenses ''Msg

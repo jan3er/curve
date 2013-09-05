@@ -1,7 +1,7 @@
 {-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Curve.Game.Types where
+module Curve.Game.Player where
 
 import Data.Time
 {-import Data.Vec-}
