@@ -25,6 +25,7 @@ executable CurveServer
                       ,lens
                       ,containers
                       ,Vec
+                      ,random
   
 executable CurveClient
   ghc-options:         -threaded

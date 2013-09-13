@@ -7,12 +7,13 @@ module Curve.Client.Render.Renderer (initResources, renderStep, Resources) where
 import           Control.Applicative
 {-import           Control.Monad-}
 import           Control.Monad.State
-{-import           Control.Lens-}
+import           Control.Lens
 
 {-import           Data.List-}
+import           Data.Maybe
 import qualified Data.Map as Map
 {-import           Data.IORef-}
-import           Data.Vec hiding (map, get)
+import qualified Data.Vec as V
 
 import           Foreign.Storable (sizeOf)
 import           Foreign.Ptr
@@ -28,7 +29,9 @@ import qualified Graphics.GLUtil.Camera3D as GLU
 
 
 import           Curve.Client.Types
+import qualified Curve.Client.Timer as Timer
 import           Curve.Game.Player
+import           Curve.Game.Ball
 
 
 -----------------------------------------------------------
@@ -56,8 +59,9 @@ data MyVAO = MyVAO { vao_vao  :: GL.VertexArrayObject
                    , vao_num  :: GL.NumArrayIndices
                    } 
 
-data Resources = Resources { res_basicShader :: BasicShader
-                            ,res_paddleVAO   :: MyVAO }
+data Resources = Resources { res_basicShader      :: BasicShader
+                           , res_paddleVAO        :: MyVAO
+                           }
                             {-,elementBuffer   :: BufferObject-}
                             {-,shaders         :: Shaders-}
                             {-,fadeFactor      :: GLfloat }-}
@@ -148,65 +152,67 @@ makePaddleVAO s = do
 
 
 render :: Resources -> Env -> IO ()
-render res env = do
-  GL.clearColor $= GL.Color4 0 0.1 0.1 1
-  GL.clear [GL.ColorBuffer, GL.DepthBuffer]
-  GL.depthMask $= GL.Enabled
-  GL.depthFunc $= Just GL.Lequal
-  let s = res_basicShader res
-  GL.currentProgram $= Just (basic_program s)
-  
-  let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
-  
-  GLU.uniformVec (basic_uColor s)      $= [1,0,1]
-  GLU.uniformMat (basic_uViewMatrix s) $= [[  1,   0,   0,   0],
-                                       [  0,   1,   0,   0],
-                                       [  0,   0,   1,   0],
-                                       [  0,   0,   0,   1]]
+render res env = 
+    let foodoo deg l = do
+          let s = res_basicShader res
+          let (a1, a2) = case l of
+                            [] -> (200, 200)
+                            (_,x,y) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
 
-  {-let now = env^.env_timer^.timer_now-}
-  {-let deg = realToFrac now-}
-  let deg = 42;
-  sequence_ $ map (foodoo deg ) posList
+          let trans = (V.translation (V.fromList [0, 0, -10]) :: V.Mat44 GLfloat)
+          let rot   = (V.rotationY (a1 + deg)) `V.multmm` (V.rotationX (a2 + deg)) :: V.Mat44 GLfloat
+          GLU.uniformMat (basic_uModelMatrix      s) $= (V.matToLists) (trans `V.multmm` rot)
+
+          GLU.uniformMat (basic_uProjectionMatrix s) $= V.matToLists (getProjectionMatrix $ env^.env_window^.window_size)
+
+          drawMyVAO (res_paddleVAO res)
+
+    in do
+    GL.clearColor $= GL.Color4 0 0.1 0.1 1
+    GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+    GL.depthMask $= GL.Enabled
+    GL.depthFunc $= Just GL.Lequal
+    let s = res_basicShader res
+    GL.currentProgram $= Just (basic_program s)
+
+    let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
+
+    GLU.uniformVec (basic_uColor s)      $= [1,0,1]
+    GLU.uniformMat (basic_uViewMatrix s)       $= (matToGLLists . V.translation) (0 V.:. 0 V.:. (-20))
+
+    {-let now = env^.env_timer^.timer_now-}
+    {-let deg = realToFrac now-}
+    let deg = 42;
+    sequence_ $ map (foodoo deg ) posList
+
+    --------------------------------
+    
+    let ballPos = fromJust $ getPosition (Timer.getTime $ env^.env_timer) (env^.env_ball)
+    GLU.uniformMat (basic_uProjectionMatrix s) $= V.matToLists (getProjectionMatrix $ env^.env_window^.window_size)
+    GLU.uniformMat (basic_uModelMatrix s)      $= (matToGLLists . V.translation) ballPos
+    GLU.uniformMat (basic_uViewMatrix s)       $= (matToGLLists . V.translation) (0 V.:. 0 V.:. (-20))
+
+    drawMyVAO (res_paddleVAO res)
 
 
-
-  {-putStrLn "--------" -}
-  {-putStrLn $ show posList-}
-  {-putStrLn "--------" -}
-  {-putStrLn $ "--------- " ++ (show $ _env_id env) ++ " -------------"-}
-  {-(putStrLn . show) env-}
-
-  {-let (b1, b2) = _env_paddlePos env-}
-  {-let (b1, b2) = (200, 300)-}
-  {-let (a1, a2) = (realToFrac b1*0.01, realToFrac b2*(-0.01))-}
-  {-putStrLn $ (show a1) ++ (show a2)-}
+    GLFW.swapBuffers
 
 
+-----------------------------------------------------------------------------
+--STUFF----------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
-  {-let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)-}
-  {-let rot   = (rotationY a1) `multmm` (rotationX a2) :: MatGLfloat-}
-  {-uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)-}
-  {-uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (deg2rad 30) 1 :: Mat44 GLfloat)-}
+matToGLLists :: V.Mat44 Float -> [[GLfloat]]
+matToGLLists m = 
+    V.matToLists $ V.map (V.map realToFrac) m
 
-  {-drawMyVAO (res_paddleVAO res)-}
-
-  GLFW.swapBuffers
-
-  where 
-    foodoo deg l = do
-      let s = res_basicShader res
-      let (a1, a2) = case l of
-                        [] -> (200, 200)
-                        (_,x,y) : _ -> (realToFrac x*0.01, realToFrac y*(-0.01))
-
-      let trans = (translation (fromList [0, 0, -10]) :: Mat44 GLfloat)
-      let rot   = (rotationY (a1 + deg)) `multmm` (rotationX (a2 + deg)) :: Mat44 GLfloat
-      GLU.uniformMat (basic_uModelMatrix      s) $= (matToLists) (trans `multmm` rot)
-      GLU.uniformMat (basic_uProjectionMatrix s) $= (matToLists) (perspective 0.01 100 (GLU.deg2rad 30) 1 :: Mat44 GLfloat)
-
-      drawMyVAO (res_paddleVAO res)
-
+getProjectionMatrix :: GL.Size -> V.Mat44 GLfloat
+getProjectionMatrix (GL.Size x y) =
+    let near  = 0.01
+        far   = 1000
+        ratio = (realToFrac x) / (realToFrac y)
+        angle = Prelude.maximum[1, 1/ratio] * GLU.deg2rad 30
+    in V.perspective near far angle ratio
 
 -----------------------------------------------------------------------------
 --PUBLIC---------------------------------------------------------------------
@@ -214,18 +220,13 @@ render res env = do
 
 initResources :: IO (Resources)
 initResources = do 
-  s <- initBasicShader
-  vao <- makePaddleVAO s
-  return $ Resources s vao
+  shader <- initBasicShader
+  vao    <- makePaddleVAO shader
+  return $ Resources shader vao
 
 renderStep :: Env -> StateT Resources IO ()
 renderStep env = do
     res <- get
     liftIO $ render res env
-
-    {-GLU.projectionMatrix-}
-    {-oder perspective -}
-
-    return ()
 
 

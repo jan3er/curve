@@ -3,6 +3,7 @@
 
 module Curve.Server.Server where
 
+import           System.Random
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.State
@@ -209,13 +210,31 @@ start = withSocketsDo $ do
 
 
 delayTime :: Int
-delayTime = 1 * 1000000
+delayTime = 2 * 1000000
 
 stepEnv :: StateT Env IO ()
 stepEnv = do
-    env <- get
-    let msg = SMsgBall 0 (0,0,0) (0,0,0) (0,0,0)
+    timer <- (\t -> liftIO $ Timer.ioUpdate t) =<< use env_timer
+    env_timer .= timer
+    
+    {-gen <- liftIO getStdGen-}
+    {-[>let (x,y) = genRange gen<]-}
+    {-[>let xs :: [Float] = map ( / fromIntegral (y-x)) $ randoms gen<]-}
+    {-let xs :: [Float] = map ( / fromIntegral (10)) $ randoms gen-}
+    {-let p1:p2:p3:d1:d2:d3:s1:s2:s3:_ = xs-}
+    {-let msg = SMsgBall (Timer.getTime timer) (0,0,0) (d1,d2,d3) (s1,s2,s3)-}
 
+
+    let t :: Int   = (floor  . (*100)) $ Timer.getTime timer
+    let x :: Float = fromIntegral $ mod t 44
+    let y :: Float = fromIntegral $ mod t 31
+    let z :: Float = fromIntegral $ mod t 51
+    let s = 0.1
+    let tuple0 = (0,0,0)
+    let tuple = (x*s, y*s, z*s)
+    let msg = SMsgBall (Timer.getTime timer) tuple0 tuple0 tuple
+
+    env <- get
     let tuples = (\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg ))
                  <$> (connectedClientsNr (env^.env_playerMap))
     

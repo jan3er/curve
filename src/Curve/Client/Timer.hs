@@ -12,6 +12,7 @@ module Curve.Client.Timer
     , GameTime
     ) where
 
+import           Debug.Trace
 import           Data.Time
 import           Control.Lens
 import           Control.Monad.State
@@ -79,4 +80,7 @@ ioUpdate = runStateT $ do
 
 -- get the game-time
 getTime :: Timer -> GameTime
+{-getTime timer = -}
+    {-let t = diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_referenceTime)-}
+    {-in trace (show t) t-}
 getTime timer = diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_referenceTime)

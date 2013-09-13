@@ -16,7 +16,8 @@ import           Control.Lens
 
 import           Data.Time
 import           Data.List
-import           Data.Maybe
+import qualified Data.Vec as V
+{-import           Data.Maybe-}
 import qualified Data.Map.Lazy as Map
 
 import           Network.Socket
@@ -29,11 +30,12 @@ import           Curve.Network.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Player
+import           Curve.Game.Ball
 
 import qualified Curve.Client.Timer as Timer
 
-
-
+-- run state in stateT monad
+{-StateT (return . runState foo)-}
 
 -------------------------------------------------------------------------------
 -- establishing a connection --------------------------------------------------
@@ -95,7 +97,8 @@ handleMsgPure msg = do
             env_timer %= Timer.serverUpdate (MsgTime t)
             return []
         
-        SMsgBall t pos dir spin -> do
+        SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
+            env_ball .= Ball t (p1 V.:. p2 V.:. p3 V.:. ()) (d1 V.:. d2 V.:. d3 V.:. ()) (s1 V.:. s2 V.:. s3 V.:. ())
             return []
 
         _ -> error "Error: Client.handleMsg"
@@ -109,9 +112,7 @@ appendPaddlePos nr posTuple =
   in  env_playerMap %~ Map.adjust appendToPM nr
 
 -------------------------------------------------------------------------------
--------------------------------------------------------------------------------
-{-StateT (return . runState foo)-}
--------------------------------------------------------------------------------
+-- MOST CODE ------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
 -- set env's windowsize to actual windowsize
