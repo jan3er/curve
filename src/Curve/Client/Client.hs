@@ -31,8 +31,10 @@ import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Player
 import           Curve.Game.Ball
+import           Curve.Game.Wall
 
 import qualified Curve.Client.Timer as Timer
+
 
 -- run state in stateT monad
 {-StateT (return . runState foo)-}
@@ -98,7 +100,7 @@ handleMsgPure msg = do
             return []
         
         SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_ball .= Ball t (p1 V.:. p2 V.:. p3 V.:. ()) (d1 V.:. d2 V.:. d3 V.:. ()) (s1 V.:. s2 V.:. s3 V.:. ())
+            env_ball .= Ball t (p1 V.:. p2 V.:. p3 V.:. ()) (d1 V.:. d2 V.:. d3 V.:. ()) (s1 V.:. s2 V.:. s3 V.:. ()) 0
             return []
 
         _ -> error "Error: Client.handleMsg"
