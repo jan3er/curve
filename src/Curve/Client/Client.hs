@@ -31,11 +31,15 @@ import           Curve.Game.Player
 import           Curve.Game.Ball
 import           Curve.Game.Wall
 
+
 import qualified Curve.Client.Timer as Timer
 import           Curve.Client.Timer (Timer)
 
 import qualified Curve.Game.Math as M
 import           Curve.Game.Math (Vec3)
+
+import qualified Curve.Game.Paddle as Paddle
+import           Curve.Game.Paddle (Paddle)
 
 
 
@@ -79,18 +83,23 @@ handleMsgPure msg = do
     env <- get
     case msg of
         SMsgWorld clients myNr isRunning -> 
-            let getPlayer nr = 
-                    case Map.lookup nr (env^.env_playerMap) of
-                        Nothing     -> Player []
-                        Just (p, _) -> p
-                playerMap =  
-                    Map.fromList $ map
-                    (\(nr, client) -> (nr, (getPlayer nr, client)))
-                    clients
-            in do
-            env_nr        .= myNr     
-            env_isRunning .= isRunning
-            env_playerMap .= playerMap
+            {-let getPlayer nr = -}
+                    {-case Map.lookup nr (env^.env_playerMap) of-}
+                        {-Nothing     -> Player []-}
+                        {-Just (p, _) -> p-}
+                {-playerMap =  -}
+                    {-Map.fromList $ map-}
+                    {-(\(nr, client) -> (nr, (getPlayer nr, client)))-}
+                    {-clients-}
+            {-in do-}
+            {-env_nr        .= myNr     -}
+            {-env_isRunning .= isRunning-}
+            {-env_playerMap .= playerMap-}
+            -- TODO
+            -- TODO
+            -- TODO
+            -- TODO
+            -- TODO
             return []
 
 
@@ -113,8 +122,8 @@ handleMsgPure msg = do
 
 appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
-  let appendToPM = _1.player_posList %~ (posTuple:)
-  in  env_playerMap %~ Map.adjust appendToPM nr
+  let appendToPaddle = player_paddle %~ (Paddle.insert posTuple)
+  in  env_playerMap %~ Map.adjust appendToPaddle nr
 
 -------------------------------------------------------------------------------
 -- MOST CODE ------------------------------------------------------------------
@@ -195,7 +204,7 @@ stepEnv = do
 
     -- delete all but the last three paddle positions
     -- TODO: put this in playerMap
-    modify $ env_playerMap.mapped._1.player_posList %~ Data.List.take 3
+    modify $ env_playerMap.mapped.player_paddle  %~ Paddle.clamp
 
     {-env <- get-}
     {-liftIO $ putStrLn $ show env-}

@@ -20,8 +20,8 @@ makeLenses ''Timer
 ----------------------------------------
 
 -- get a brand new timer
-init :: IO Timer
-init = do
+new :: IO Timer
+new  = do
     t <- getCurrentTime
     return $ Timer 
         t

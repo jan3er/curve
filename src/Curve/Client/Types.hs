@@ -16,15 +16,16 @@ import           Curve.Game.Player
 import qualified Curve.Game.Ball as Ball
 import           Curve.Game.Ball (Ball)
 
-import qualified Curve.Game.Wall as Wall
-import           Curve.Game.Wall (Wall)
+{-import qualified Curve.Game.Wall as Wall-}
+{-import           Curve.Game.Wall (Wall)-}
 
 import qualified Curve.Client.Timer as Timer
 import           Curve.Client.Timer (Timer)
 
 ----------------------------------------
 
-type PlayerMap = Map.Map Int (Player, Maybe Client)
+{-type PlayerMap = Map.Map Int (Player, Maybe Client)-}
+type ClientMap = Map.Map Int Client
 
 
 data Window = Window
@@ -57,4 +58,4 @@ initEnv sock = do
         <*> pure False
         <*> Timer.init
         <*> pure window
-        <*> pure Ball.init
+        <*> pure Ball.new

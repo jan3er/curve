@@ -18,8 +18,7 @@ import           Curve.Game.Math (Vec3, Mat33)
 -----------------------------------
 
 data Wall = Wall
-    { _wall_maybeNr       :: Maybe Int
-    , _wall_lowerLeft     :: Vec3 Float
+    { _wall_lowerLeft     :: Vec3 Float
     , _wall_lowerRight    :: Vec3 Float
     , _wall_upperLeft     :: Vec3 Float
     , _wall_upperRight    :: Vec3 Float
@@ -30,26 +29,24 @@ makeLenses ''Wall
 
 -- this is probably horribly wrong
 -- TODO add top and bottom
-initArena :: Float -> Float -> [Int] -> [Wall]
+initArena :: Float -> Float -> Int -> ([Wall],[Wall])
 initArena radius height nrs = 
-    let angle  :: Float = 2*pi / (fromIntegral $ length nrs)
+    let angle  :: Float = 2*pi / (fromIntegral nrs)
         top    :: Float = height/2
         bottom :: Float = (-1)*height/2
         stepToPos :: Float -> Int -> Vec3 Float
         stepToPos h i =  M.mkVec3 (sin (fromIntegral i*angle) * radius)
                                   (cos (fromIntegral i*angle) * radius) h
     in
-    ((\(nr, i) -> 
+    ((\i -> 
         init
-        (Just nr)
         (stepToPos bottom (i))
         (stepToPos bottom (i+1))
         (stepToPos top    (i))
-    ) <$> zip nrs [1..])
-    ++ 
-    ((\h -> 
+    ) <$> [1..nrs]
+    ,
+    (\h -> 
         init
-        Nothing
         (M.mkVec3 (-radius) ( radius) h)
         (M.mkVec3 (-radius) ( radius) h)
         (M.mkVec3 (-radius) ( radius) h)
@@ -60,10 +57,10 @@ initArena radius height nrs =
 -----------------------------------
 
 -- positions as facing the center of the world
-init :: Maybe Int -> Vec3 Float -> Vec3 Float -> Vec3 Float -> Wall
-init maybeNr lowerLeft lowerRight upperLeft =
+init :: Vec3 Float -> Vec3 Float -> Vec3 Float -> Wall
+init lowerLeft lowerRight upperLeft =
     let upperRight = lowerRight M.-. lowerLeft M.+. upperLeft
-    in Wall maybeNr lowerLeft lowerRight upperLeft upperRight
+    in Wall lowerLeft lowerRight upperLeft upperRight
 
 
 -- the normal of the plane, pointing towards (0,0,0)

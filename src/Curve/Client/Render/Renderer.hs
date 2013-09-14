@@ -176,7 +176,16 @@ render res env =
     let s = res_basicShader res
     GL.currentProgram $= Just (basic_program s)
 
-    let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)
+    {-let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)-}
+    --TODO
+    --TODO
+    --TODO
+    --TODO
+    --TODO
+    --TODO
+    --TODO
+    --TODO
+    let posList = []
 
     GLU.uniformVec (basic_uColor s)      $= [1,0,1]
     GLU.uniformMat (basic_uViewMatrix s)       $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))

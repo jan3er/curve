@@ -30,8 +30,8 @@ makeLenses ''Ball
 
 -----------------------------------
 
-init :: Ball
-init = Ball
+new :: Ball
+new = Ball
     0
     (M.mkVec3 0 0 0)
     (M.mkVec3 0 0 0)
