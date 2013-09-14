@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
+{-# OPTIONS -Wall #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -77,6 +77,8 @@ intersection wall ball =
 
 -- pretty fucked up. 
 -- repeat basic calculations from scrath
+-- use foo | guard
+--         | guard
 intersection' :: Wall -> Ball -> Maybe Float
 intersection' wall ball =
     let isSmall x = abs x < 0.000001
