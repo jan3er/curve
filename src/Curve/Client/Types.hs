@@ -38,6 +38,7 @@ makeLenses ''Window
 -- holds the enviornments state
 data Env = Env 
     { _env_playerMap     :: PlayerMap
+    , _env_clientMap     :: ClientMap
     , _env_socket        :: Socket
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
@@ -53,6 +54,7 @@ initEnv :: Socket -> IO Env
 initEnv sock = do
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
     Env <$> pure Map.empty
+        <*> pure Map.empty
         <*> pure sock
         <*> pure (-1)
         <*> pure False

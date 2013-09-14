@@ -31,8 +31,15 @@ import qualified Curve.Game.Math as M
 import           Curve.Game.Math (Vec3, Vec4, Mat33, Mat44)
 import           Curve.Client.Types
 import qualified Curve.Client.Timer as Timer
-import           Curve.Game.Player
-import           Curve.Game.Ball
+
+import qualified Curve.Game.Ball as Ball
+import           Curve.Game.Ball (Ball)
+
+import qualified Curve.Game.Player as Player
+import           Curve.Game.Player (Player)
+
+import qualified Curve.Game.Paddle as Paddle
+import           Curve.Game.Paddle (Paddle)
 
 
 -----------------------------------------------------------
@@ -176,19 +183,10 @@ render res env =
     let s = res_basicShader res
     GL.currentProgram $= Just (basic_program s)
 
-    {-let posList = (map (_player_posList . fst . snd)) (Map.toList $ _env_playerMap env)-}
-    --TODO
-    --TODO
-    --TODO
-    --TODO
-    --TODO
-    --TODO
-    --TODO
-    --TODO
-    let posList = []
+    let posList = ((\x -> x^._2^.Player.player_paddle^.Paddle.paddle_positions )) <$> (Map.toList $ _env_playerMap env)
 
     GLU.uniformVec (basic_uColor s)      $= [1,0,1]
-    GLU.uniformMat (basic_uViewMatrix s)       $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))
+    GLU.uniformMat (basic_uViewMatrix s) $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))
 
     {-let now = env^.env_timer^.timer_now-}
     {-let deg = realToFrac now-}
@@ -197,7 +195,7 @@ render res env =
 
     --------------------------------
     
-    let ballPos = fromJust $ positionByTime (Timer.getTime $ env^.env_timer) (env^.env_ball)
+    let ballPos = fromJust $ Ball.positionByTime (Timer.getTime $ env^.env_timer) (env^.env_ball)
     GLU.uniformMat (basic_uProjectionMatrix s) $= M.matToLists (getProjectionMatrix $ env^.env_window^.window_size)
     GLU.uniformMat (basic_uModelMatrix s)      $= (matToGLLists . M.translation) ballPos
     GLU.uniformMat (basic_uViewMatrix s)       $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))

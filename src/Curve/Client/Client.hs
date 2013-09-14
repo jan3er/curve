@@ -16,6 +16,7 @@ import           Control.Lens
 
 import           Data.Time
 import           Data.List
+import           Data.Maybe
 import qualified Data.Map.Lazy as Map
 
 import           Network.Socket
@@ -41,6 +42,8 @@ import           Curve.Game.Math (Vec3)
 import qualified Curve.Game.Paddle as Paddle
 import           Curve.Game.Paddle (Paddle)
 
+import qualified Curve.Game.Player as Player
+import           Curve.Game.Player (Player)
 
 
 -- run state in stateT monad
@@ -83,23 +86,24 @@ handleMsgPure msg = do
     env <- get
     case msg of
         SMsgWorld clients myNr isRunning -> 
-            {-let getPlayer nr = -}
-                    {-case Map.lookup nr (env^.env_playerMap) of-}
-                        {-Nothing     -> Player []-}
-                        {-Just (p, _) -> p-}
-                {-playerMap =  -}
-                    {-Map.fromList $ map-}
-                    {-(\(nr, client) -> (nr, (getPlayer nr, client)))-}
-                    {-clients-}
-            {-in do-}
-            {-env_nr        .= myNr     -}
-            {-env_isRunning .= isRunning-}
-            {-env_playerMap .= playerMap-}
-            -- TODO
-            -- TODO
-            -- TODO
-            -- TODO
-            -- TODO
+            let clientMap :: Map.Map Int Client
+                clientMap = Map.fromList . catMaybes $
+                            (\(nr, maybeCl) -> do
+                                cl <- maybeCl
+                                return (nr, cl)
+                            ) <$> clients
+
+                playerMap = Map.fromList $ 
+                            (\(nr, _) -> 
+                                (nr, maybe 
+                                     Player.new id 
+                                     (Map.lookup nr (env^.env_playerMap)))
+                            ) <$> clients
+            in do
+            env_nr        .= myNr    
+            env_isRunning .= isRunning
+            env_playerMap .= playerMap
+            env_clientMap .= clientMap
             return []
 
 

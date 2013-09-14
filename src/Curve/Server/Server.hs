@@ -70,34 +70,26 @@ handleMsgPure nr msg = do
         _ -> error "Server.handleMsg: no handler for this message"
 
 
+-- TODO: put this somewhere else
 getWorldBroadcast :: Env -> [(Socket,Msg)]
 getWorldBroadcast env = 
-    {-let clients = map-}
-            {-(_2 %~ \(_, c) -> view scl_client <$> c)-}
-            {-(Map.toList $ env^.env_playerMap )-}
-        {-msg nr = SMsgWorld clients nr (env^.env_isRunning)-}
+    let nrs           = fst <$> (Map.toList $ env^.env_playerMap)
+        buildTuple nr = (nr, view scl_client <$> Map.lookup nr (env^.env_clientMap))
+        msg nr        = SMsgWorld (buildTuple <$> nrs) nr (env^.env_isRunning)
     
-    {-in -}
-    {-(\nr -> (view scl_socket $ clientFromNr nr (env^.env_playerMap), msg nr ))-}
-    {-<$> (connectedClientsNr (env^.env_playerMap))-}
-    []
-    --TODO
-    --TODO
-    --TODO
-    --TODO
+    in
+    (\nr -> (view scl_socket $ clientFromNr nr (env^.env_clientMap), msg nr ))
+    <$> (connectedClientsNr (env^.env_clientMap))
     
 
+
+-- TODO: put this somewhere else
 getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Socket,Msg)]
 getPaddleBroadcast nr tup env = 
-    {-let msg = MsgPaddle nr tup-}
-    {-in -}
-    {-(\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_playerMap), msg))-}
-    {-<$> (filter (/= nr) $ connectedClientsNr (env^.env_playerMap))-}
-    []
-    --TODO
-    --TODO
-    --TODO
-    --TODO
+    let msg = MsgPaddle nr tup
+    in
+    (\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_clientMap), msg))
+    <$> (filter (/= nr) $ connectedClientsNr (env^.env_clientMap))
 
 
 -------------------------------------------------------------------------------
