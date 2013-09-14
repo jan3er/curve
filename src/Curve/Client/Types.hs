@@ -12,9 +12,15 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 import           Curve.Network.Types
 import           Curve.Game.Player
-import           Curve.Game.Ball
+
+import qualified Curve.Game.Ball as Ball
+import           Curve.Game.Ball (Ball)
+
+import qualified Curve.Game.Wall as Wall
+import           Curve.Game.Wall (Wall)
 
 import qualified Curve.Client.Timer as Timer
+import           Curve.Client.Timer (Timer)
 
 ----------------------------------------
 
@@ -34,7 +40,7 @@ data Env = Env
     , _env_socket        :: Socket
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
-    , _env_timer         :: Timer.Timer
+    , _env_timer         :: Timer
     , _env_window        :: Window
     , _env_ball          :: Ball
     } deriving Show
@@ -49,6 +55,6 @@ initEnv sock = do
         <*> pure sock
         <*> pure (-1)
         <*> pure False
-        <*> Timer.initTime
+        <*> Timer.init
         <*> pure window
-        <*> pure initBall
+        <*> pure Ball.init

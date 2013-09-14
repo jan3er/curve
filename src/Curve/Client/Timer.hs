@@ -5,7 +5,7 @@
 {-module Curve.Client.Timer where-}
 module Curve.Client.Timer
     ( Timer
-    , initTime
+    , Curve.Client.Timer.init
     , getTime
     , serverUpdate
     , ioUpdate
@@ -36,8 +36,8 @@ queryInterval = 2
 --------------------------------------------------------------------------------------
 
 -- get a brand new timer
-initTime :: IO Timer
-initTime = do
+init :: IO Timer
+init = do
     t <- getCurrentTime
     return $ Timer 
         t

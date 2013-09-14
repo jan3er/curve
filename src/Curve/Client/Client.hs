@@ -16,8 +16,6 @@ import           Control.Lens
 
 import           Data.Time
 import           Data.List
-import qualified Data.Vec as V
-{-import           Data.Maybe-}
 import qualified Data.Map.Lazy as Map
 
 import           Network.Socket
@@ -34,6 +32,11 @@ import           Curve.Game.Ball
 import           Curve.Game.Wall
 
 import qualified Curve.Client.Timer as Timer
+import           Curve.Client.Timer (Timer)
+
+import qualified Curve.Game.Math as M
+import           Curve.Game.Math (Vec3)
+
 
 
 -- run state in stateT monad
@@ -100,7 +103,7 @@ handleMsgPure msg = do
             return []
         
         SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_ball .= Ball t (p1 V.:. p2 V.:. p3 V.:. ()) (d1 V.:. d2 V.:. d3 V.:. ()) (s1 V.:. s2 V.:. s3 V.:. ()) 0
+            env_ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
             return []
 
         _ -> error "Error: Client.handleMsg"

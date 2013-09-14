@@ -4,7 +4,6 @@
 module Curve.Game.Player where
 
 import Data.Time
-{-import Data.Vec-}
 
 import Control.Lens
 
