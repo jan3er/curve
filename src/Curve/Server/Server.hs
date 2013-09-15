@@ -21,9 +21,9 @@ import           Control.Lens
 
 import           Curve.Server.Env
 import           Curve.Server.ClientMap
-import qualified Curve.Server.Timer as Timer
+import           Curve.Server.Timer as Timer
 
-import qualified Curve.Game.Player as Player
+import           Curve.Game.Player as Player
 
 import           Curve.Network.Network
 

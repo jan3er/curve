@@ -33,17 +33,16 @@ import           Curve.Game.Ball
 import           Curve.Game.Wall
 
 
-import qualified Curve.Client.Timer as Timer
-import           Curve.Client.Timer (Timer)
 
 import qualified Curve.Game.Math as M
 import           Curve.Game.Math (Vec3)
 
-import qualified Curve.Game.Paddle as Paddle
-import           Curve.Game.Paddle (Paddle)
-
-import qualified Curve.Game.Player as Player
-import           Curve.Game.Player (Player)
+import           Curve.Client.Timer as Timer
+import           Curve.Game.Ball    as Ball 
+import           Curve.Game.Player  as Player
+import           Curve.Game.Paddle  as Paddle
+import           Curve.Game.Wall    as Wall
+import           Curve.Game.World   as World
 
 
 -- run state in stateT monad
@@ -85,25 +84,19 @@ handleMsgPure :: MsgHandlerPure Env
 handleMsgPure msg = do
     env <- get
     case msg of
-        SMsgWorld clients myNr isRunning -> 
-            let clientMap :: Map.Map Int Client
-                clientMap = Map.fromList . catMaybes $
-                            (\(nr, maybeCl) -> do
-                                cl <- maybeCl
-                                return (nr, cl)
-                            ) <$> clients
-
-                playerMap = Map.fromList $ 
-                            (\(nr, _) -> 
-                                (nr, maybe 
-                                     Player.new id 
-                                     (Map.lookup nr (env^.env_playerMap)))
-                            ) <$> clients
-            in do
+        SMsgWorld clients myNr isRunning -> do
             env_nr        .= myNr    
             env_isRunning .= isRunning
-            env_playerMap .= playerMap
-            env_clientMap .= clientMap
+            env_clientMap .= (Map.fromList $ catMaybes $
+                                (\(nr, maybeClient) -> do
+                                    client <- maybeClient
+                                    return (nr, client)
+                                ) <$> clients)
+            env_playerMap .= (Map.fromList $ 
+                                (\(nr, _) -> 
+                                    (nr, maybe Player.new id 
+                                         (Map.lookup nr (env^.env_playerMap)))
+                                ) <$> clients)
             return []
 
 
@@ -116,7 +109,7 @@ handleMsgPure msg = do
             return []
         
         SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
+            env_world.World.ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
             return []
 
         _ -> error "Error: Client.handleMsg"
@@ -126,7 +119,7 @@ handleMsgPure msg = do
 
 appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
-  let appendToPaddle = player_paddle %~ (Paddle.insert posTuple)
+  let appendToPaddle = paddle %~ (Paddle.insert posTuple)
   in  env_playerMap %~ Map.adjust appendToPaddle nr
 
 -------------------------------------------------------------------------------
@@ -189,6 +182,13 @@ start = do
     -- connect to server
     mEnv <- establishConnection "jan" (return (), handleMsgPure, return ())
 
+   
+    modifyMVar_ mEnv $ execStateT $ do
+        let walls = (fst $ Wall.initArena 7 3 7)
+        env_world.World.extraWalls .= walls
+
+ 
+
     
     -- start loop
     _ <- forever $ flip execStateT startRes $ do
@@ -208,7 +208,7 @@ stepEnv = do
 
     -- delete all but the last three paddle positions
     -- TODO: put this in playerMap
-    modify $ env_playerMap.mapped.player_paddle  %~ Paddle.clamp
+    modify $ env_playerMap.mapped.paddle  %~ Paddle.clamp
 
     {-env <- get-}
     {-liftIO $ putStrLn $ show env-}

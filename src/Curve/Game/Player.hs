@@ -18,8 +18,8 @@ import           Control.Lens
 --------------------------------
 
 data Player = Player 
-    { _player_wall   :: Wall
-    , _player_paddle :: Paddle
+    { _wall   :: Wall
+    , _paddle :: Paddle
     } deriving Show
 makeLenses ''Player
 

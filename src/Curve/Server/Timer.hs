@@ -12,8 +12,8 @@ import           Control.Monad.State
 type GameTime = NominalDiffTime
 
 data Timer = Timer
-    { _timer_referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
-    , _timer_localCurrentTime :: UTCTime             -- the current local Time
+    { _referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
+    , _localCurrentTime :: UTCTime             -- the current local Time
     } deriving Show
 makeLenses ''Timer
 
@@ -31,8 +31,8 @@ new  = do
 ioUpdate :: Timer -> IO Timer
 ioUpdate = execStateT $ do
     currentTime <- liftIO $ getCurrentTime
-    timer_localCurrentTime .= currentTime
+    localCurrentTime .= currentTime
 
 -- get the game-time
 getTime :: Timer -> GameTime
-getTime timer = diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_referenceTime)
+getTime timer = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)

@@ -12,7 +12,7 @@ module Curve.Client.Timer
     , GameTime
     ) where
 
-import           Debug.Trace
+{-import           Debug.Trace-}
 import           Data.Time
 import           Control.Lens
 import           Control.Monad.State
@@ -23,10 +23,10 @@ import           Curve.Network.Types
 type GameTime = NominalDiffTime
 
 data Timer = Timer
-    { _timer_referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
-    , _timer_localLastQuery   :: UTCTime             -- the local time of the last query
-    , _timer_localCurrentTime :: UTCTime             -- the current local Time
-    , _timer_waitForResp      :: Bool                -- is there an outstanding reply to a time request?
+    { _referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
+    , _localLastQuery   :: UTCTime             -- the local time of the last query
+    , _localCurrentTime :: UTCTime             -- the current local Time
+    , _waitForResp      :: Bool                -- is there an outstanding reply to a time request?
     } deriving Show
 makeLenses ''Timer
 
@@ -50,13 +50,13 @@ init = do
 serverUpdate:: Msg -> Timer -> Timer
 serverUpdate (MsgTime t) timer = 
     let mediumLocalTime = addUTCTime 
-            (0.5 * diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_localLastQuery))
-            (timer^.timer_localLastQuery) 
+            (0.5 * diffUTCTime (timer^.localCurrentTime) (timer^.localLastQuery))
+            (timer^.localLastQuery) 
         newReferenceTime =
             addUTCTime (-1*t) mediumLocalTime 
     in timer 
-        { _timer_referenceTime = newReferenceTime
-        , _timer_waitForResp   = False 
+        { _referenceTime = newReferenceTime
+        , _waitForResp   = False 
         } 
 serverUpdate _ _ = error "Timer.update: wrong Msg"
 
@@ -65,14 +65,14 @@ serverUpdate _ _ = error "Timer.update: wrong Msg"
 ioUpdate :: Timer -> IO (Maybe Msg, Timer)
 ioUpdate = runStateT $ do
     currentTime <- liftIO $ getCurrentTime
-    timer_localCurrentTime .= currentTime
+    localCurrentTime .= currentTime
 
     timer <- get
-    let diff :: Float = realToFrac $ diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_localLastQuery)
-    if ((diff >= queryInterval) && not (timer^.timer_waitForResp))
+    let diff :: Float = realToFrac $ diffUTCTime (timer^.localCurrentTime) (timer^.localLastQuery)
+    if ((diff >= queryInterval) && not (timer^.waitForResp))
         then do
-            timer_waitForResp    .= True
-            timer_localLastQuery .= currentTime
+            waitForResp    .= True
+            localLastQuery .= currentTime
             return $ Just (MsgTime 0)
         else do
             return Nothing
@@ -81,6 +81,6 @@ ioUpdate = runStateT $ do
 -- get the game-time
 getTime :: Timer -> GameTime
 {-getTime timer = -}
-    {-let t = diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_referenceTime)-}
+    {-let t = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)-}
     {-in trace (show t) t-}
-getTime timer = diffUTCTime (timer^.timer_localCurrentTime) (timer^.timer_referenceTime)
+getTime timer = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)

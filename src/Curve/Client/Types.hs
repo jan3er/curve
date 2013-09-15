@@ -19,6 +19,9 @@ import           Curve.Game.Ball (Ball)
 {-import qualified Curve.Game.Wall as Wall-}
 {-import           Curve.Game.Wall (Wall)-}
 
+import qualified Curve.Game.World as World
+import           Curve.Game.World (World)
+
 import qualified Curve.Client.Timer as Timer
 import           Curve.Client.Timer (Timer)
 
@@ -39,12 +42,13 @@ makeLenses ''Window
 data Env = Env 
     { _env_playerMap     :: PlayerMap
     , _env_clientMap     :: ClientMap
+    , _env_world         :: World
     , _env_socket        :: Socket
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
     , _env_timer         :: Timer
     , _env_window        :: Window
-    , _env_ball          :: Ball
+    {-, _env_ball          :: Ball-}
     } deriving Show
 makeLenses ''Env
 
@@ -55,9 +59,10 @@ initEnv sock = do
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
     Env <$> pure Map.empty
         <*> pure Map.empty
+        <*> pure World.new
         <*> pure sock
         <*> pure (-1)
         <*> pure False
         <*> Timer.init
         <*> pure window
-        <*> pure Ball.new
+        {-<*> pure Ball.new-}

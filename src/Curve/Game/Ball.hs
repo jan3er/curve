@@ -20,18 +20,18 @@ import           Curve.Game.Wall (Wall)
 -----------------------------------
 
 data Ball = Ball 
-    { _ball_referenceTime :: NominalDiffTime
-    , _ball_position      :: Vec3 Float
-    , _ball_speed         :: Vec3 Float
-    , _ball_acceleration  :: Vec3 Float
-    , _ball_size          :: Float
+    { _referenceTime :: NominalDiffTime
+    , _position      :: Vec3 Float
+    , _speed         :: Vec3 Float
+    , _acceleration  :: Vec3 Float
+    , _size          :: Float
     } deriving Show
 makeLenses ''Ball
 
 -----------------------------------
 
-new :: Ball
-new = Ball
+newBall :: Ball
+newBall = Ball
     0
     (M.mkVec3 0 0 0)
     (M.mkVec3 0 0 0)
@@ -40,13 +40,13 @@ new = Ball
 
 positionByTime :: NominalDiffTime -> Ball -> Maybe (Vec3 Float)
 positionByTime  t ball =
-    let deltaT :: Float = realToFrac $ t - ball^.ball_referenceTime
+    let deltaT :: Float = realToFrac $ t - ball^.referenceTime
         foo x = trace (show deltaT) x
         {-foo x = x-}
     in foo $ Just $
-                             (ball^.ball_position)
-    + M.map (deltaT*)        (ball^.ball_speed)
-    + M.map (deltaT*deltaT*) (ball^.ball_acceleration)
+                             (ball^.position)
+    + M.map (deltaT*)        (ball^.speed)
+    + M.map (deltaT*deltaT*) (ball^.acceleration)
 
 
 
@@ -64,9 +64,9 @@ intersectionList walls ball =
 intersection :: Wall -> Ball -> Maybe NominalDiffTime
 intersection wall ball =
     let maybeTime = intersection' wall ball 
-        newPos t  = (ball^.ball_position)
-                    M.+. ((ball^.ball_speed)        M.*. t)
-                    M.+. ((ball^.ball_acceleration) M.*. (t*t))
+        newPos t  = (ball^.position)
+                    M.+. ((ball^.speed)        M.*. t)
+                    M.+. ((ball^.acceleration) M.*. (t*t))
         
     in do
         t <- maybeTime
@@ -82,23 +82,19 @@ intersection wall ball =
 intersection' :: Wall -> Ball -> Maybe Float
 intersection' wall ball =
     let isSmall x = abs x < 0.000001
-        pos       = ball^.ball_position
-        speed     = ball^.ball_speed
-        accel     = ball^.ball_acceleration
-        ballSize  = ball^.ball_size
         normal    = Wall.normal wall
         distance  = Wall.distance wall
     in
-    if isSmall $ normal `M.dot` accel
+    if isSmall $ normal `M.dot` (ball^.acceleration)
     then 
-        if isSmall $ normal `M.dot` speed
+        if isSmall $ normal `M.dot` (ball^.speed)
         then
              Nothing
         else 
-            Just $ ((normal `M.dot` pos) + (distance - ballSize)) / normal `M.dot` speed
+            Just $ ((normal `M.dot` (ball^.position)) + (distance - (ball^.size))) / normal `M.dot` (ball^.speed)
     else 
-        let p   = (normal `M.dot` speed) / (normal `M.dot` accel)
-            q   = (normal `M.dot` pos) + (distance - ballSize) / (normal `M.dot` accel)
+        let p   = (normal `M.dot` (ball^.speed)) / (normal `M.dot` (ball^.acceleration))
+            q   = (normal `M.dot` (ball^.position)) + (distance - (ball^.size)) / (normal `M.dot` (ball^.acceleration))
             tmp = 0.25*p*p - q
         in
         if tmp < 0
