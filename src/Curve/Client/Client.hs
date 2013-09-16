@@ -109,7 +109,7 @@ handleMsgPure msg = do
             return []
         
         SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_world.World.ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
+            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
             return []
 
         _ -> error "Error: Client.handleMsg"
@@ -119,7 +119,7 @@ handleMsgPure msg = do
 
 appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
-  let appendToPaddle = paddle %~ (Paddle.insert posTuple)
+  let appendToPaddle = _paddle %~ (Paddle.insert posTuple)
   in  env_playerMap %~ Map.adjust appendToPaddle nr
 
 -------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ start = do
    
     modifyMVar_ mEnv $ execStateT $ do
         let walls = (fst $ Wall.initArena 7 3 7)
-        env_world.World.extraWalls .= walls
+        env_world._extraWalls .= walls
 
  
 
@@ -207,8 +207,7 @@ stepEnv = do
     updateTimer
 
     -- delete all but the last three paddle positions
-    -- TODO: put this in playerMap
-    modify $ env_playerMap.mapped.paddle  %~ Paddle.clamp
+    modify $ env_playerMap.mapped._paddle  %~ Paddle.clamp
 
     {-env <- get-}
     {-liftIO $ putStrLn $ show env-}

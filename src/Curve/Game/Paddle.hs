@@ -10,15 +10,15 @@ import           Control.Lens
 type Entry = (NominalDiffTime, Float, Float)
 
 data Paddle = Paddle {
-      _positions :: [Entry]
+      __positions :: [Entry]
     } deriving Show
 makeLenses ''Paddle
 
 clamp :: Paddle -> Paddle
-clamp = positions %~ L.take 3
+clamp = _positions %~ L.take 3
 
 insert :: Entry -> Paddle -> Paddle
-insert entry = positions %~ (entry:)
+insert entry = _positions %~ (entry:)
 
 -- x and y dimensions of the paddle
 dimensions :: (Float, Float)

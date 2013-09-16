@@ -9,17 +9,16 @@ import           Data.Maybe
 import           Data.List 
 
 import qualified Curve.Game.Math as M
-import qualified Curve.Game.Wall as Wall
-import           Curve.Game.Wall (Wall)
-import qualified Curve.Game.Paddle as Paddle
-import           Curve.Game.Paddle (Paddle)
+
+import           Curve.Game.Wall as Wall
+import           Curve.Game.Paddle as Paddle
 import           Control.Lens
 
 --------------------------------
 
 data Player = Player 
-    { _wall   :: Wall
-    , _paddle :: Paddle
+    { __wall   :: Wall
+    , __paddle :: Paddle
     } deriving Show
 makeLenses ''Player
 
@@ -29,8 +28,8 @@ type PlayerMap = Map Int Player
 
 new :: Player
 new = Player 
-    (Wall.init (M.mkVec3 0 0 0) (M.mkVec3 0 0 0) (M.mkVec3 0 0 0)) 
-    (Paddle.Paddle [])
+    (Wall (M.mkVec3 0 0 0) (M.mkVec3 0 0 0) (M.mkVec3 0 0 0) (1,1)) 
+    (Paddle [])
 
 
 add :: Player -> PlayerMap -> (PlayerMap, Int)

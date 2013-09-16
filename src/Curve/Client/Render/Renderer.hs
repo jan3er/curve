@@ -120,7 +120,7 @@ render res env =
     let s = res^.res_basicShader
     GL.currentProgram $= Just (s^.basic_program)
 
-    let posList = ((\x -> x^._2^.Player.paddle^.Paddle.positions )) <$> (Map.toList $ _env_playerMap env)
+    let posList = ((\x -> x^._2^._paddle^._positions )) <$> (Map.toList $ _env_playerMap env)
 
     GLU.uniformVec (s^.basic_uColor)      $= [1,0,1]
     GLU.uniformMat (s^.basic_uViewMatrix) $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))
@@ -133,7 +133,7 @@ render res env =
     --------------------------------
     
     GL.currentProgram $= Just (s^.basic_program)
-    let ballPos = fromJust $ Ball.positionByTime (Timer.getTime $ env^.env_timer) (env^.env_world^.World.ball)
+    let ballPos = fromJust $ positionByTime (Timer.getTime $ env^.env_timer) (env^.env_world^._ball)
     GLU.uniformMat (s^.basic_uProjectionMatrix) $= (matToGLLists.getProjectionMatrix) (env^.env_window^.window_size)
     GLU.uniformMat (s^.basic_uModelMatrix)      $= (matToGLLists.M.translation)       ballPos
     GLU.uniformMat (s^.basic_uViewMatrix)       $= (matToGLLists.M.translation)       (M.mkVec3 0 0 (-20))
@@ -144,7 +144,7 @@ render res env =
     sequence_ $ 
         (\wall -> do
             fooDrawMyVao s (wallTransformationMatrix wall) (res^.res_vaoWall)
-        ) <$> (env^.env_world^.World.extraWalls)
+        ) <$> (env^.env_world^._extraWalls)
         
 
 
@@ -180,10 +180,10 @@ fooDrawMyVao s modelMatrix vao = do
 -- todo: mat33 to mat44
 wallTransformationMatrix :: Wall -> Mat44 Float
 wallTransformationMatrix wall =
-    let up       = Wall.up wall
-        look     = Wall.normal wall
+    let up       = wall^._updir
+        look     = wall^._normal
         rotMat   = M.from33to44 $ fromJust $ M.invert $ M.mkVec3 (M.cross up look) up look
-        transMat = M.translation (Wall.center wall)
+        transMat = M.translation (wall^._center)
     in transMat `M.multmm` rotMat
         
 -----------------------------------------------------------------------------

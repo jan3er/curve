@@ -15,9 +15,9 @@ import           Curve.Game.Player
 ---------------------------------------
 
 data World = World
-    { _ball         :: Ball
-    , _extraWalls   :: [Wall]
-    , _playerMap    :: Map Int Player
+    { __ball         :: Ball
+    , __extraWalls   :: [Wall]
+    , __playerMap    :: Map Int Player
     } deriving Show
 makeLenses ''World
 
