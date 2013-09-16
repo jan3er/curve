@@ -184,7 +184,7 @@ start = do
 
    
     modifyMVar_ mEnv $ execStateT $ do
-        let walls = (fst $ Wall.initArena 7 3 7)
+        let walls = (fst $ Wall.initArena 3 3 6)
         env_world._extraWalls .= walls
 
  

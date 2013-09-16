@@ -25,7 +25,7 @@ data Wall = Wall
     -- the render or the wall
     , __center        :: Vec3 Float
     -- (width, height)
-    , __dimension     :: (Float, Float)
+    , __dimensions    :: (Float, Float)
     } deriving Show
 makeLenses ''Wall
 
@@ -38,13 +38,13 @@ initArena radius height noPlayers =
     let 
         -- the angle change with each step
         angle  :: Float = 2*pi / (fromIntegral noPlayers)
-        -- from wikipedia, gleichschenkliges dreick
-        width  :: Float = sqrt $ 2*radius*(1-cos angle)
+        -- tan alpha/2 = width/radius
+        width  :: Float = radius * (tan (angle/2))
         -- the center of the wall at step i
         centerAt i  =  
             M.mkVec3 
-                (-sin (fromIntegral i*angle) * radius)
-                (-cos (fromIntegral i*angle) * radius) 
+                (sin (fromIntegral i*angle) * radius)
+                (cos (fromIntegral i*angle) * radius) 
                 0
     in
     -- one wall for each player

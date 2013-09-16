@@ -141,6 +141,7 @@ render res env =
     drawMyVao (res^.res_vaoPaddle)
 
 
+    -- draw arena
     sequence_ $ 
         (\wall -> do
             fooDrawMyVao s (wallTransformationMatrix wall) (res^.res_vaoWall)
@@ -177,14 +178,14 @@ fooDrawMyVao s modelMatrix vao = do
 
 
 -- calculate transformation matrix to display a wall 
--- todo: mat33 to mat44
 wallTransformationMatrix :: Wall -> Mat44 Float
 wallTransformationMatrix wall =
-    let up       = wall^._updir
-        look     = wall^._normal
-        rotMat   = M.from33to44 $ fromJust $ M.invert $ M.mkVec3 (M.cross up look) up look
-        transMat = M.translation (wall^._center)
-    in transMat `M.multmm` rotMat
+    let (width, height) = wall^._dimensions
+        scaleMat        = (M.mkVec4 width height 1 1) `M.scale` M.identity
+        rotMat          = M.from33to44 $ fromJust $ M.invert $ 
+                          M.mkVec3 ((wall^._updir) `M.cross` (wall^._normal)) (wall^._updir) (wall^._normal)
+        transMat        = M.translation (wall^._center)
+    in transMat `M.multmm` rotMat `M.multmm` scaleMat
         
 -----------------------------------------------------------------------------
 --PUBLIC---------------------------------------------------------------------

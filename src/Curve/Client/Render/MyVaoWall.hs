@@ -19,7 +19,7 @@ import           Curve.Client.Render.GLTypes
 
 array :: [GLfloat]
 array = (concatMap toArray) $ zip3 
-    (position 1 1 1)
+    (position 1 1 0.1)
     normal
     texCoord
     where toArray ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
