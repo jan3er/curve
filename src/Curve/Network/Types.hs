@@ -4,12 +4,12 @@
 
 module Curve.Network.Types where
 
+import           System.IO
 import           Data.Time
 import           Data.Typeable
 import           Data.Data
 import           Control.Lens
 import           Control.Monad.State
-import           Network.Socket
 
 type NetworkTime = NominalDiffTime
 
@@ -36,12 +36,12 @@ data Msg = CMsgHello     { _CMsgHello_nick      :: String
                          , _MsgPaddle_pos       :: (NetworkTime, Float, Float) }
          | MsgTime       { _MsgTime_time        :: NominalDiffTime 
                          }
-         | MsgUnknown 
+         {-| MsgUnknown -}
   deriving (Data, Typeable, Show)
 makeLenses ''Msg
 
 
-type MsgHandlerPure a = Msg -> State a [(Socket, Msg)]
+type MsgHandlerPure a = Msg -> State a [(Handle, Msg)]
 type MsgHandlerPre  a = StateT a IO ()
 type MsgHandlerPost a = StateT a IO ()
 type MsgHandler     a = (MsgHandlerPre a, MsgHandlerPure a, MsgHandlerPost a)
