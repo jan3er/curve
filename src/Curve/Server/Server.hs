@@ -3,15 +3,15 @@
 
 module Curve.Server.Server where
 
-import           System.Random
+import           System.IO
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.State
 import           Control.Applicative
-import           Debug.Trace
+{-import           Debug.Trace-}
 import           Data.Time
-import           Data.Maybe
-import           Data.List
+{-import           Data.Maybe-}
+{-import           Data.List-}
 import qualified Data.Map.Lazy as Map
 {-import           Data.List-}
 
@@ -64,31 +64,31 @@ handleMsgPure nr msg = do
 
         MsgTime _ -> do 
             msgOut <- MsgTime . Timer.getTime <$> use env_timer
-            sock <- view scl_socket . clientFromNr nr . view env_clientMap <$> get
+            sock <- view scl_handle . clientFromNr nr . view env_clientMap <$> get
             return [(sock, msgOut)]
 
         _ -> error "Server.handleMsg: no handler for this message"
 
 
 -- TODO: put this somewhere else
-getWorldBroadcast :: Env -> [(Socket,Msg)]
+getWorldBroadcast :: Env -> [(Handle,Msg)]
 getWorldBroadcast env = 
     let nrs           = fst <$> (Map.toList $ env^.env_playerMap)
         buildTuple nr = (nr, view scl_client <$> Map.lookup nr (env^.env_clientMap))
         msg nr        = SMsgWorld (buildTuple <$> nrs) nr (env^.env_isRunning)
     
     in
-    (\nr -> (view scl_socket $ clientFromNr nr (env^.env_clientMap), msg nr ))
+    (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg nr ))
     <$> (connectedClientsNr (env^.env_clientMap))
     
 
 
 -- TODO: put this somewhere else
-getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Socket,Msg)]
+getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Handle,Msg)]
 getPaddleBroadcast nr tup env = 
     let msg = MsgPaddle nr tup
     in
-    (\ nr' -> (view scl_socket $ clientFromNr nr' (env^.env_clientMap), msg))
+    (\ nr' -> (view scl_handle $ clientFromNr nr' (env^.env_clientMap), msg))
     <$> (filter (/= nr) $ connectedClientsNr (env^.env_clientMap))
 
 
@@ -100,24 +100,28 @@ getPaddleBroadcast nr tup env =
 -- listen on listenSocket and call forkClient for every incomming connection
 forkListener :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
 {-forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId-}
-forkListener mEnv listenSock handler = forkIO . forever $ do
+forkListener mEnv listenSock handler = forkIO $ forever $ do
     (sock, _) <- accept listenSock
-    forkClient mEnv sock handler
+    hdl <- socketToHandle sock ReadWriteMode 
+    hSetBuffering hdl NoBuffering
+    forkClient mEnv hdl handler
 
 -- if game is running close socket and return,
 -- otherwise add client to game and fork handler
 -- when the client disconnects the playermap entry is removed or killed, depending on isRunning
-forkClient :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
-forkClient mEnv sock handlerServer = forkIO $ do
+forkClient :: MVar Env -> Handle -> MsgHandlerServer Env -> IO ThreadId
+forkClient mEnv hdl handlerServer = forkIO $ do
 
-    maybeMsg    <- recvMsg sock 
+    maybeMsg    <- getMsg hdl
+    
+    -- will hold the nr of the new player if authentification was valid, otherwise Nothing
     maybeNextNr <- modifyMVar mEnv $ \env -> do
         case (maybeMsg, env^.env_isRunning) of
 
             -- if game is not running jet and CMsgHello was received, add playermap entry
             (Just (CMsgHello nick), False) -> do
                 putStrLn "acceptNewClient"
-                let sClient  = SClient sock $ Client nick 0 True
+                let sClient  = SClient hdl $ Client nick 0 True
                 let (pm, nr) = Player.add (Player.new) (env^.env_playerMap)
                 let cm       = addClient sClient nr (env^.env_clientMap) 
                 let newEnv   = (env_playerMap .~ pm) $
@@ -130,7 +134,6 @@ forkClient mEnv sock handlerServer = forkIO $ do
             -- otherwise close socket
             _ -> do 
                 putStrLn "declineNewClient"
-                sClose sock
                 return (env, Nothing)
 
     -- if client was added, broadcast world, then start message-handler
@@ -139,15 +142,15 @@ forkClient mEnv sock handlerServer = forkIO $ do
         Just nextNr -> do
             _ <- forkIO $ do
                 putStrLn "fork recvMsgAndHandle"
-                sendMsgList . getWorldBroadcast =<< readMVar mEnv
+                putMsgs . getWorldBroadcast =<< readMVar mEnv
 
                 let handler = handlerServer & _2 %~ (\f -> f nextNr)
-                recvMsgAndHandle mEnv sock handler
+                getMsgAndHandle mEnv hdl handler
 
                 modifyMVar_ mEnv $ execStateT $ do
                     isRunning <- use env_isRunning
                     env_clientMap %= removeOrKillClient isRunning nextNr
-                    liftIO . sendMsgList =<< getWorldBroadcast <$> get
+                    liftIO . putMsgs =<< getWorldBroadcast <$> get
             return ()
         _ -> return ()
 
@@ -188,7 +191,7 @@ forkSimpleKeyboardHandler mEnv = forkIO . forever $ do
             liftIO $ putStrLn "toggleIsRunning"
             env_isRunning %= not
             list <- getWorldBroadcast <$> get
-            liftIO $ sendMsgList list 
+            liftIO $ putMsgs list 
         "env" -> do
             join $ (liftIO . putStrLn . show) <$> get
             
@@ -241,7 +244,7 @@ stepEnv = do
     let msg = SMsgBall (Timer.getTime timer) tuple0 tuple0 tuple
 
     env <- get
-    let tuples = (\nr -> (view scl_socket $ clientFromNr nr (env^.env_clientMap), msg ))
+    let tuples = (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))
                  <$> (connectedClientsNr (env^.env_clientMap))
     
-    liftIO $ sendMsgList tuples
+    liftIO $ putMsgs tuples

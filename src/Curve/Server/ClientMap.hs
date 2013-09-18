@@ -3,17 +3,18 @@
 
 module Curve.Server.ClientMap where 
 
+import           Control.Lens
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import qualified Data.Set as Set
 {-import           Data.List-}
 {-import           Data.Maybe-}
-import           Network.Socket
+import           System.IO
+{-import           Network.Socket-}
 
 import           Curve.Network.Types
 {-import           Curve.Game.Player-}
 
-import           Control.Lens
 {-import           Control.Monad-}
 {-import           Control.Applicative-}
 
@@ -21,7 +22,7 @@ import           Control.Lens
 
 -- represends one client
 data SClient = SClient 
-    { _scl_socket   :: Socket
+    { _scl_handle   :: Handle
     , _scl_client   :: Client
     } deriving Show
 makeLenses ''SClient

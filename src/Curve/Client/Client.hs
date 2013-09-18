@@ -4,8 +4,8 @@
 
 module Curve.Client.Client where
 
-import           System.Environment (getArgs, getProgName)
-{-import           System.Exit-}
+import           System.Environment (getProgName)
+import           System.IO
 import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
@@ -15,7 +15,7 @@ import           Control.Lens
 {-import           Debug.Trace-}
 
 import           Data.Time
-import           Data.List
+{-import           Data.List-}
 import           Data.Maybe
 import qualified Data.Map.Lazy as Map
 
@@ -30,15 +30,15 @@ import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Player
 import           Curve.Game.Ball
-import           Curve.Game.Wall
+{-import           Curve.Game.Wall-}
 
 
 
 import qualified Curve.Game.Math as M
-import           Curve.Game.Math (Vec3)
+{-import           Curve.Game.Math (Vec3)-}
 
 import           Curve.Client.Timer as Timer
-import           Curve.Game.Ball    as Ball 
+{-import           Curve.Game.Ball    as Ball -}
 import           Curve.Game.Player  as Player
 import           Curve.Game.Paddle  as Paddle
 import           Curve.Game.Wall    as Wall
@@ -62,17 +62,19 @@ establishConnection playerName msgHandler = do
     let serverAddr = head addrInfo
     sock <- socket (addrFamily serverAddr) Stream defaultProtocol
     connect sock (addrAddress serverAddr)
-    sendMsg (CMsgHello playerName) sock
+    hdl <- socketToHandle sock ReadWriteMode
+    hSetBuffering hdl NoBuffering
+    putMsg hdl (CMsgHello playerName)
 
-    mEnv <- newMVar =<< initEnv sock
+    mEnv <- newMVar =<< initEnv hdl
     forkMsgHandler mEnv msgHandler
     return mEnv
 
 
 forkMsgHandler :: MVar Env -> MsgHandler Env -> IO ()
 forkMsgHandler mEnv handler = do
-    sock <- _env_socket <$> readMVar mEnv
-    _<- forkIO $ recvMsgAndHandle mEnv sock handler
+    handle <- _env_handle <$> readMVar mEnv
+    _<- forkIO $ getMsgAndHandle mEnv handle handler
     return ()
 
 
@@ -145,7 +147,7 @@ mouseInput = do
         env        <- get
         globalTime <- Timer.getTime <$> use env_timer
         modify $ appendPaddlePos (env^.env_nr) (globalTime, x, y)
-        liftIO $ sendMsg (MsgPaddle (env^.env_nr) (globalTime, x, y)) (env^.env_socket)
+        liftIO $ putMsg (env^.env_handle) (MsgPaddle (env^.env_nr) (globalTime, x, y))
 
 
 -- keep timer up to date and in sync
@@ -159,8 +161,8 @@ updateTimer = do
         Nothing -> do 
             return ()
         Just msg -> do 
-            sock <- use env_socket
-            liftIO $ sendMsg msg sock
+            handle <- use env_handle
+            liftIO $ putMsg handle msg 
 
 
 initGL :: IO Resources 

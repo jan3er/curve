@@ -4,7 +4,7 @@
 module Curve.Client.Types where 
 
 import qualified Data.Map as Map
-import           Network.Socket
+import           System.IO
 import           Control.Lens
 import           Control.Applicative
 
@@ -13,8 +13,8 @@ import qualified Graphics.Rendering.OpenGL as GL
 import           Curve.Network.Types
 import           Curve.Game.Player
 
-import qualified Curve.Game.Ball as Ball
-import           Curve.Game.Ball (Ball)
+{-import qualified Curve.Game.Ball as Ball-}
+{-import           Curve.Game.Ball (Ball)-}
 
 {-import qualified Curve.Game.Wall as Wall-}
 {-import           Curve.Game.Wall (Wall)-}
@@ -43,7 +43,7 @@ data Env = Env
     { _env_playerMap     :: PlayerMap
     , _env_clientMap     :: ClientMap
     , _env_world         :: World
-    , _env_socket        :: Socket
+    , _env_handle        :: Handle
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
     , _env_timer         :: Timer
@@ -54,7 +54,7 @@ makeLenses ''Env
 
 ----------------------------------
 
-initEnv :: Socket -> IO Env
+initEnv :: Handle -> IO Env
 initEnv sock = do
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
     Env <$> pure Map.empty
