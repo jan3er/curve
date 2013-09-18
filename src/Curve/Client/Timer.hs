@@ -13,20 +13,22 @@ module Curve.Client.Timer
     ) where
 
 {-import           Debug.Trace-}
+import           System.IO
 import           Data.Time
 import           Control.Lens
 import           Control.Monad.State
 
-import           Curve.Network.Types
+import           Curve.Network.Network
 
 
 type GameTime = NominalDiffTime
 
 data Timer = Timer
-    { _referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
-    , _localLastQuery   :: UTCTime             -- the local time of the last query
-    , _localCurrentTime :: UTCTime             -- the current local Time
-    , _waitForResp      :: Bool                -- is there an outstanding reply to a time request?
+    { __referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
+    , __localLastQuery   :: UTCTime             -- the local time of the last query
+    , __localCurrentTime :: UTCTime             -- the current local Time
+    , __waitForResp      :: Bool                -- is there an outstanding reply to a time request?
+    , __handle           :: Handle
     } deriving Show
 makeLenses ''Timer
 
@@ -36,46 +38,49 @@ queryInterval = 2
 --------------------------------------------------------------------------------------
 
 -- get a brand new timer
-init :: IO Timer
-init = do
+init :: Handle -> IO Timer
+init handle = do
+    putMsg handle (MsgTime 0)
     t <- getCurrentTime
     return $ Timer 
         t
         t
         t
         False
+        handle
 
 
 -- update the timer with message from the server
 serverUpdate:: Msg -> Timer -> Timer
 serverUpdate (MsgTime t) timer = 
     let mediumLocalTime = addUTCTime 
-            (0.5 * diffUTCTime (timer^.localCurrentTime) (timer^.localLastQuery))
-            (timer^.localLastQuery) 
+            (0.5 * diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery))
+            (timer^._localLastQuery) 
         newReferenceTime =
             addUTCTime (-1*t) mediumLocalTime 
     in timer 
-        { _referenceTime = newReferenceTime
-        , _waitForResp   = False 
+        { __referenceTime = newReferenceTime
+        , __waitForResp   = False 
         } 
 serverUpdate _ _ = error "Timer.update: wrong Msg"
 
 
 -- update the internal time of the timer and maybe get message to be sent to server
-ioUpdate :: Timer -> IO (Maybe Msg, Timer)
-ioUpdate = runStateT $ do
+ioUpdate :: Timer -> IO Timer
+ioUpdate = execStateT $ do
     currentTime <- liftIO $ getCurrentTime
-    localCurrentTime .= currentTime
+    _localCurrentTime .= currentTime
 
     timer <- get
-    let diff :: Float = realToFrac $ diffUTCTime (timer^.localCurrentTime) (timer^.localLastQuery)
-    if ((diff >= queryInterval) && not (timer^.waitForResp))
+    let diff :: Float = realToFrac $ diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery)
+    if ((diff >= queryInterval) && not (timer^._waitForResp))
         then do
-            waitForResp    .= True
-            localLastQuery .= currentTime
-            return $ Just (MsgTime 0)
+            _waitForResp    .= True
+            _localLastQuery .= currentTime
+            liftIO $ putMsg (timer^._handle) (MsgTime 0)
+            return ()
         else do
-            return Nothing
+            return ()
 
 
 -- get the game-time
@@ -83,4 +88,4 @@ getTime :: Timer -> GameTime
 {-getTime timer = -}
     {-let t = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)-}
     {-in trace (show t) t-}
-getTime timer = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)
+getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)

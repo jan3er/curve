@@ -6,11 +6,10 @@ module Curve.Client.Types where
 import qualified Data.Map as Map
 import           System.IO
 import           Control.Lens
-import           Control.Applicative
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-import           Curve.Network.Types
+import           Curve.Network.Network
 import           Curve.Game.Player
 
 {-import qualified Curve.Game.Ball as Ball-}
@@ -55,14 +54,14 @@ makeLenses ''Env
 ----------------------------------
 
 initEnv :: Handle -> IO Env
-initEnv sock = do
+initEnv handle = do
+    timer <- Timer.init handle
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
-    Env <$> pure Map.empty
-        <*> pure Map.empty
-        <*> pure World.new
-        <*> pure sock
-        <*> pure (-1)
-        <*> pure False
-        <*> Timer.init
-        <*> pure window
-        {-<*> pure Ball.new-}
+    return $ Env Map.empty
+                 Map.empty
+                 World.new
+                 handle
+                 (-1)
+                 False
+                 timer
+                 window

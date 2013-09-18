@@ -37,12 +37,14 @@ newBall = Ball
     (M.mkVec3 0 0 0)
     0
 
+--only valid for times greater than difftime
 positionByTime :: NominalDiffTime -> Ball -> Maybe (Vec3 Float)
 positionByTime  t ball =
     let deltaT :: Float = realToFrac $ t - ball^._referenceTime
         {-foo x = trace (show deltaT) x-}
-        foo x = x
-    in foo $ Just $
+        {-foo x = x-}
+    {-in foo $ Just $-}
+    in if t < 0 then Nothing else Just $
                              (ball^._position)
     + M.map (deltaT*)        (ball^._speed)
     + M.map (deltaT*deltaT*) (ball^._acceleration)

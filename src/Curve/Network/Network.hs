@@ -26,7 +26,7 @@ import           Curve.Network.Types
 -- runs until connection is closed
 -- handle messages with given handler
 getMsgAndHandle :: Show a => MVar a -> Handle -> MsgHandler a -> IO ()
-getMsgAndHandle mEnv hdl handler =
+getMsgAndHandle mEnv handle handler =
     
     -- process a message by calling the handler on it
     let handleMsg msg = do
@@ -40,7 +40,7 @@ getMsgAndHandle mEnv hdl handler =
             putStrLn "WARNING: could not decrypt msg"
     in do
     -- process messages as long as the connection is up
-    whileM_ (not <$> hIsEOF hdl) (maybe handleNoMsg handleMsg =<< getMsg hdl)
+    whileM_ (not <$> hIsEOF handle) (maybe handleNoMsg handleMsg =<< getMsg handle)
 
     -- todo: close connection?
     return ()
@@ -49,19 +49,19 @@ putMsgs :: [(Handle, Msg)] -> IO ()
 putMsgs = mapM_ (\(h,m) -> putMsg h m)
 
 putMsg :: Handle -> Msg -> IO ()
-putMsg hdl msg = do
+putMsg handle msg = do
     putStrLn $ "=> outgoing: " ++ show msg
-    putMsg' hdl msg
+    putMsg' handle msg
 
 getMsg :: Handle -> IO (Maybe Msg)
-getMsg hdl = do
-    msg <- getMsg' hdl
+getMsg handle = do
+    msg <- getMsg' handle
     putStrLn $ "=> incomming: " ++ show msg
     return msg
 
     
 putMsg' :: Handle -> Msg -> IO ()
-putMsg' hdl = hPutStrLn hdl . BLC.unpack . encode
+putMsg' handle = hPutStrLn handle . BLC.unpack . encode
 
 getMsg' :: Handle -> IO (Maybe Msg)
-getMsg' hdl = hGetLine hdl >>= return . decode . BLC.pack
+getMsg' handle = hGetLine handle >>= return . decode . BLC.pack

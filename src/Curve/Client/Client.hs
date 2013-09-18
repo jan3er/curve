@@ -154,16 +154,8 @@ mouseInput = do
 updateTimer :: StateT Env IO ()
 updateTimer = do
     oldTimer <- use env_timer
-    (maybeMsg, timer) <- liftIO $ Timer.ioUpdate oldTimer
+    timer <- liftIO $ Timer.ioUpdate oldTimer
     env_timer .= timer
-
-    case maybeMsg of
-        Nothing -> do 
-            return ()
-        Just msg -> do 
-            handle <- use env_handle
-            liftIO $ putMsg handle msg 
-
 
 initGL :: IO Resources 
 initGL = do
