@@ -1,21 +1,21 @@
-name:                curve
-version:             0.1.0.0
-synopsis:            -
-homepage:            -
-license:             AllRightsReserved
-author:              Jan Dreier
-maintainer:          -
-build-type:          Simple
-cabal-version:       >=1.8
+name:                  curve
+version:               0.1.0.0
+synopsis:              -
+homepage:              -
+license:               AllRightsReserved
+author:                Jan Dreier
+maintainer:            -
+build-type:            Simple
+cabal-version:         >=1.8
 
 
 executable CurveServer
-  hs-source-dirs:      src
-  main-is:             CurveServer.hs 
+    hs-source-dirs:    src
+    main-is:           CurveServer.hs 
 
-  other-modules:       Curve.Server.Server 
+    other-modules:     Curve.Server.Server 
 
-  build-depends:       base ==4.6.*
+    build-depends:     base ==4.6.*
                       ,monad-loops ==0.4.*
                       ,time ==1.4.*
                       ,aeson ==0.6.*
@@ -28,13 +28,13 @@ executable CurveServer
                       ,random
   
 executable CurveClient
-  ghc-options:         -threaded
-  hs-source-dirs:      src
-  main-is:             CurveClient.hs 
+    ghc-options:       -threaded
+    hs-source-dirs:    src
+    main-is:           CurveClient.hs 
 
-  other-modules:       Curve.Client.Client
+    other-modules:     Curve.Client.Client
 
-  build-depends:       base ==4.6.* 
+    build-depends:     base ==4.6.* 
                       ,monad-loops ==0.4.*
                       ,time ==1.4.*
                       ,aeson ==0.6.*
@@ -49,3 +49,19 @@ executable CurveClient
                       ,OpenGL
                       ,OpenGLRaw
                       ,GLUtil
+
+test-suite TestSuite
+    type:              exitcode-stdio-1.0
+    hs-source-dirs:    src
+    main-is:           TestSuite.hs
+    build-depends:     base ==4.6.*
+                      ,monad-loops ==0.4.*
+                      ,time ==1.4.*
+                      ,aeson ==0.6.*
+                      ,bytestring ==0.10.*
+                      ,network ==2.4.*
+                      ,mtl
+                      ,lens
+                      ,containers
+                      ,Vec
+                      ,random

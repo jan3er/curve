@@ -133,7 +133,7 @@ render res env =
     --------------------------------
     
     GL.currentProgram $= Just (s^.basic_program)
-    let ballPos = fromJust $ positionByTime (Timer.getTime $ env^.env_timer) (env^.env_world^._ball)
+    let ballPos = positionByTime (Timer.getTime $ env^.env_timer) (env^.env_world^._ball)
     GLU.uniformMat (s^.basic_uProjectionMatrix) $= (matToGLLists.getProjectionMatrix) (env^.env_window^.window_size)
     GLU.uniformMat (s^.basic_uModelMatrix)      $= (matToGLLists.M.translation)       ballPos
     GLU.uniformMat (s^.basic_uViewMatrix)       $= (matToGLLists.M.translation)       (M.mkVec3 0 0 (-20))

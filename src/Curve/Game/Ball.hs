@@ -18,7 +18,7 @@ import           Curve.Game.Wall as Wall
 
 -----------------------------------
 
-data Ball = Ball 
+data Ball = Ball
     { __referenceTime :: NominalDiffTime
     , __position      :: Vec3 Float
     , __speed         :: Vec3 Float
@@ -27,24 +27,35 @@ data Ball = Ball
     } deriving Show
 makeLenses ''Ball
 
------------------------------------
+-- PUBLIC ---------------------------------
 
 newBall :: Ball
 newBall = Ball
     0
     (M.mkVec3 0 0 0)
-    (M.mkVec3 0 0 0)
-    (M.mkVec3 0 0 0)
+    (M.mkVec3 3 1 0)
+    (M.mkVec3 0 1 0)
     0
 
+
+-- use householder reflection
+reflect :: Wall -> NominalDiffTime -> Ball -> Ball
+reflect wall t ball=
+    let oldDir = ball^._speed
+        dotProduct = oldDir `dot` (wall^._normal)
+        newDir = oldDir -. ((wall^._normal) *. (2*dotProduct))
+    in
+    Ball t (positionByTime t ball) newDir (ball^._acceleration) (ball^._size)
+    
+
 --only valid for times greater than difftime
-positionByTime :: NominalDiffTime -> Ball -> Maybe (Vec3 Float)
+positionByTime :: NominalDiffTime -> Ball -> Vec3 Float
 positionByTime  t ball =
     let deltaT :: Float = realToFrac $ t - ball^._referenceTime
         {-foo x = trace (show deltaT) x-}
         {-foo x = x-}
     {-in foo $ Just $-}
-    in if t < 0 then Nothing else Just $
+    in if t < 0 then (error "Game.Ball.positionByTime") else 
                              (ball^._position)
     + M.map (deltaT*)        (ball^._speed)
     + M.map (deltaT*deltaT*) (ball^._acceleration)
@@ -53,6 +64,7 @@ positionByTime  t ball =
 -- get the wall the ball touches next
 intersectionList :: [Wall] -> Ball -> (Wall, NominalDiffTime)
 intersectionList walls ball =
+    {-let walls = traceShow walls' walls'-}
     let f wall = (\time -> (wall, time)) <$> intersection wall ball
         tuples :: [(Wall, NominalDiffTime)] = catMaybes $ f <$> walls
     in
@@ -61,14 +73,28 @@ intersectionList walls ball =
         xs -> maximumBy (\a b -> compare (a^._2) (b^._2)) xs
 
 
+-----------------------------------
+
+
+
 -- get the moment of intersection with this wall 
 intersection :: Wall -> Ball -> Maybe NominalDiffTime
 intersection wall ball =
-    let deltaTime = maximum $ intersectionHelper (wall^._normal) (wall^._center) ball
-        newPos t  = (ball^._position)
+    {-let deltaTime'= maximum $ intersectionHelper (wall^._normal) (wall^._center) ball-}
+        {-deltaTime = traceShow deltaTime' deltaTime'-}
+    let newPos t  = (ball^._position)
                     +. ((ball^._speed)        *. t)
                     +. ((ball^._acceleration) *. (t*t))
     in 
+    {-if Wall.isInRectangle wall (newPos deltaTime)-}
+        {-then return $ ball^._referenceTime + realToFrac deltaTime-}
+        {-else Nothing-}
+    do
+    -- fetch all possible results
+    let times = filter ( >= 0) $ intersectionHelper (wall^._normal) (wall^._center) ball
+    -- if there are results, get the maximum
+    {-asdfasdfahsdfk-}
+    deltaTime <- if null times then Nothing else Just (maximum times)
     if Wall.isInRectangle wall (newPos deltaTime)
         then return $ ball^._referenceTime + realToFrac deltaTime
         else Nothing
@@ -76,8 +102,9 @@ intersection wall ball =
 
 --get list of possible intersection-times
 intersectionHelper :: Vec3 Float -> Vec3 Float -> Ball -> [Float]
-intersectionHelper wallNormal wallCenter ball = 
+intersectionHelper wallNormal wallCenter ball =
     let 
+        {-isSmall x = abs x < 0.0000001-}
         -- position of the ball if wall was in center
         relativePos = (ball^._position) -. wallCenter
 
@@ -92,19 +119,25 @@ intersectionHelper wallNormal wallCenter ball =
         --       a = accel dot normal
         --       b = dir dot normal
         --       c = pos dot normal
-        a  = (ball^._acceleration)        `dot` wallNormal
-        b  = (ball^._speed)               `dot` wallNormal
+        a  = (ball^._acceleration)       `dot` wallNormal
+        b  = (ball^._speed)              `dot` wallNormal
         c1 = (relativePos +. ballOffset) `dot` wallNormal
         c2 = (relativePos -. ballOffset) `dot` wallNormal
     in 
     concat $ map (\(x,y) -> [x,y]) $ catMaybes
-         [ roots a b c1
-         , roots a b c2 ]
+         [ if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c1) else (solveSquare a b c1)
+         , if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c2) else (solveSquare a b c2) ]
         
 
+solveLinear :: Float -> Float -> Maybe Float
+solveLinear b c = 
+    if (b == 0) then Nothing
+                else Just (-c/b)
+
 -- from stack overflow
-roots :: Float -> Float -> Float -> Maybe (Float, Float)
-roots a b c = if d < 0 then
+-- expects a to be nonzero
+solveSquare :: Float -> Float -> Float -> Maybe (Float, Float)
+solveSquare a b c = if d < 0 then
                 Nothing
                 else Just (x1, x2)
                     where x1 = e + sqrt d / (2 * a)

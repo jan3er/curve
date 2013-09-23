@@ -37,7 +37,5 @@ add player pm =
     let nr = fromJust $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]
     in (Map.insert nr player pm, nr)
 
-
-{-fromClientMap:: Map Int a -> PlayerMap-}
-{-fromClientMap = Map.fromList . (map $ \(nr, _) -> (nr, new)) . Map.toList-}
-
+remove :: Int -> PlayerMap -> PlayerMap
+remove nr pm = Map.alter (maybe (error "Game.Player.remove ") (\_ -> Nothing)) nr pm

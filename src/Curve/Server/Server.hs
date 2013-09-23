@@ -22,8 +22,11 @@ import           Control.Lens
 import           Curve.Server.Env
 import           Curve.Server.ClientMap
 import           Curve.Server.Timer as Timer
-
 import           Curve.Game.Player as Player
+import           Curve.Game.Wall as Wall
+import           Curve.Game.World as World
+import           Curve.Game.Ball as Ball
+import qualified Curve.Game.Math as M
 
 import           Curve.Network.Network
 
@@ -74,11 +77,15 @@ handleMsgPure nr msg = do
 getWorldBroadcast :: Env -> [(Handle,Msg)]
 getWorldBroadcast env = 
     let nrs           = fst <$> (Map.toList $ env^.env_playerMap)
+
+        buildTuple :: Int -> (Int, Maybe Client)
         buildTuple nr = (nr, view scl_client <$> Map.lookup nr (env^.env_clientMap))
-        msg nr        = SMsgWorld (buildTuple <$> nrs) nr (env^.env_isRunning)
+
+        buildMsg :: Int -> Msg
+        buildMsg nr   = SMsgWorld (buildTuple <$> nrs) nr (env^.env_isRunning)
     
     in
-    (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg nr ))
+    (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), buildMsg nr ))
     <$> (connectedClientsNr (env^.env_clientMap))
     
 
@@ -91,6 +98,19 @@ getPaddleBroadcast nr tup env =
     (\ nr' -> (view scl_handle $ clientFromNr nr' (env^.env_clientMap), msg))
     <$> (filter (/= nr) $ connectedClientsNr (env^.env_clientMap))
 
+getBallBroadcast :: Env -> [(Handle,Msg)]
+getBallBroadcast env =
+    let ball = env^.env_world^._ball
+        msg = SMsgBall 
+                (ball^.Ball._referenceTime)
+                (M.mkTuple3 $ ball^._position)
+                (M.mkTuple3 $ ball^._speed)
+                (M.mkTuple3 $ ball^._acceleration)
+    in
+    (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))
+    <$> (connectedClientsNr (env^.env_clientMap))
+    
+
 
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
@@ -102,17 +122,17 @@ forkListener :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
 {-forkListener :: MVar Env -> Socket -> (Int -> MsgHandler Env) -> IO ThreadId-}
 forkListener mEnv listenSock handler = forkIO $ forever $ do
     (sock, _) <- accept listenSock
-    hdl <- socketToHandle sock ReadWriteMode 
-    hSetBuffering hdl NoBuffering
-    forkClient mEnv hdl handler
+    handle <- socketToHandle sock ReadWriteMode 
+    hSetBuffering handle NoBuffering
+    forkClient mEnv handle handler
 
 -- if game is running close socket and return,
 -- otherwise add client to game and fork handler
 -- when the client disconnects the playermap entry is removed or killed, depending on isRunning
 forkClient :: MVar Env -> Handle -> MsgHandlerServer Env -> IO ThreadId
-forkClient mEnv hdl handlerServer = forkIO $ do
+forkClient mEnv handle handlerServer = forkIO $ do
 
-    maybeMsg    <- getMsg hdl
+    maybeMsg    <- getMsg handle
     
     -- will hold the nr of the new player if authentification was valid, otherwise Nothing
     maybeNextNr <- modifyMVar mEnv $ \env -> do
@@ -121,19 +141,17 @@ forkClient mEnv hdl handlerServer = forkIO $ do
             -- if game is not running jet and CMsgHello was received, add playermap entry
             (Just (CMsgHello nick), False) -> do
                 putStrLn "acceptNewClient"
-                let sClient  = SClient hdl $ Client nick 0 True
+                let sClient  = SClient handle $ Client nick 0 True
                 let (pm, nr) = Player.add (Player.new) (env^.env_playerMap)
                 let cm       = addClient sClient nr (env^.env_clientMap) 
                 let newEnv   = (env_playerMap .~ pm) $
                                (env_clientMap .~ cm) env
                 return (newEnv, Just nr)
-                {-let (newPlayerMap, nextNr) = addClient sClient (env^.env_playerMap)-}
-                {-let newEnv = env & env_playerMap .~ newPlayerMap-}
-                {-return (newEnv, Just nextNr)-}
 
             -- otherwise close socket
             _ -> do 
                 putStrLn "declineNewClient"
+                hClose handle 
                 return (env, Nothing)
 
     -- if client was added, broadcast world, then start message-handler
@@ -141,16 +159,26 @@ forkClient mEnv hdl handlerServer = forkIO $ do
     case maybeNextNr of
         Just nextNr -> do
             _ <- forkIO $ do
-                putStrLn "fork recvMsgAndHandle"
+                putStrLn "start getMsgAndHandle"
+                
+                -- let everyone know we've got a new client
                 putMsgs . getWorldBroadcast =<< readMVar mEnv
 
+                -- let the network handler take over
                 let handler = handlerServer & _2 %~ (\f -> f nextNr)
-                getMsgAndHandle mEnv hdl handler
+                getMsgAndHandle mEnv handle handler
 
+                -- drop client when connection is closed, broadcast
                 modifyMVar_ mEnv $ execStateT $ do
                     isRunning <- use env_isRunning
-                    env_clientMap %= removeOrKillClient isRunning nextNr
+                    if isRunning
+                        then do env_clientMap %= killClient   nextNr
+                        else do env_clientMap %= removeClient nextNr
+                                env_playerMap %= remove       nextNr
                     liftIO . putMsgs =<< getWorldBroadcast <$> get
+                hClose handle
+
+                putStrLn "end getMsgAndHandle"
             return ()
         _ -> return ()
 
@@ -207,10 +235,18 @@ start = withSocketsDo $ do
     _<- forkListener mEnv listenSock (handleMsgPre , handleMsgPure, handleMsgPost)
     _<- forkSimpleKeyboardHandler mEnv
 
+
+
+    modifyMVar_ mEnv $ execStateT $ do
+        let walls :: ([Wall],[Wall]) = (Wall.initArena 3 3 5)
+        env_world._extraWalls .= (fst walls) ++ (snd walls)
+
+    _<- forkBallHandler mEnv
+
     -- run main loop
     _<- forever $ do 
             threadDelay delayTime 
-            modifyMVar_ mEnv $ execStateT stepEnv
+            {-modifyMVar_ mEnv $ execStateT stepEnv-}
 
 
     putStrLn "reached the end"
@@ -234,17 +270,46 @@ stepEnv = do
     {-let msg = SMsgBall (Timer.getTime timer) (0,0,0) (d1,d2,d3) (s1,s2,s3)-}
 
 
-    let t :: Int   = (floor  . (*100)) $ Timer.getTime timer
-    let x :: Float = fromIntegral $ mod t 44
-    let y :: Float = fromIntegral $ mod t 31
-    let z :: Float = fromIntegral $ mod t 51
-    let s = 0.1
-    let tuple0 = (0,0,0)
-    let tuple = (x*s, y*s, z*s)
-    let msg = SMsgBall (Timer.getTime timer) tuple0 tuple0 tuple
+    {-let t :: Int   = (floor  . (*100)) $ Timer.getTime timer-}
+    {-let x :: Float = fromIntegral $ mod t 44-}
+    {-let y :: Float = fromIntegral $ mod t 31-}
+    {-let z :: Float = fromIntegral $ mod t 51-}
+    {-let s = 0.1-}
+    {-let tuple0 = (0,0,0)-}
+    {-let tuple = (x*s, y*s, z*s)-}
+    {-let msg = SMsgBall (Timer.getTime timer) tuple0 tuple0 tuple-}
 
-    env <- get
-    let tuples = (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))
-                 <$> (connectedClientsNr (env^.env_clientMap))
+    {-env <- get-}
+    {-let tuples = (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))-}
+                 {-<$> (connectedClientsNr (env^.env_clientMap))-}
     
-    liftIO $ putMsgs tuples
+    {-liftIO $ putMsgs tuples-}
+
+
+
+forkBallHandler :: MVar Env -> IO ThreadId
+forkBallHandler mEnv = forkIO $ forever $ do
+    env <- readMVar mEnv
+
+    modifyMVar_ mEnv $ execStateT stepEnv
+
+    let walls = env^.env_world^._extraWalls
+    let ball  = env^.env_world^._ball
+    let currentTime = getTime (env^.env_timer)
+    let (wall, intersectTime) = intersectionList walls ball
+    
+    if (currentTime < intersectTime)
+        then threadDelay 1
+        else do 
+                putStrLn "-----------" 
+                let reflectedBall :: Ball = reflect wall currentTime ball
+                modifyMVar_ mEnv (\enva -> return ((env_world._ball) .~ reflectedBall $ enva))
+                putMsgs . getBallBroadcast =<< readMVar mEnv
+
+                let (_,foo) = intersectionList walls reflectedBall
+                print foo
+                {-putStrLn $ show currentTime-}
+
+
+    return ()
+    

@@ -1,6 +1,5 @@
-{-# OPTIONS -Wall -fno-warn-missing-signatures #-}
+{-# OPTIONS -Wall #-}
 module Main where
-
 import Curve.Server.Server (start)
 
 main :: IO ()

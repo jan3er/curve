@@ -49,19 +49,11 @@ addClient client nr =
                 Just _ -> error "Server.ClientMap.addClient nr already in map"
                 Nothing -> Just client
     in Map.alter f nr
-{-let player = Player []-}
-    {-nr = fromJust $ find (\x -> x `notElem` map fst (Map.toList pm)) [0..]-}
-{-in (Map.insert nr (player, Just client) pm, nr)-}
-
-
--- remove client from map if game is not running jet
--- otherwise mark client with this nr as dead
-removeOrKillClient :: Bool -> Int -> ClientMap -> ClientMap
-removeOrKillClient isRunning nr cm = 
-    let f = if isRunning then kill else remove
-    in 
-    Map.alter (maybe (error "Server.PlayerMap.removeOrKillClient") f) nr cm
-  where 
-    remove _ = Nothing
-    kill c   = Just $ set (scl_client.cl_isAlive) False  c
     
+removeClient :: Int -> ClientMap -> ClientMap
+removeClient = Map.alter (maybe (error "Server.ClientMap.remove") (\_ -> Nothing))
+    
+killClient :: Int -> ClientMap -> ClientMap
+killClient = 
+    let kill = Just . set (scl_client.cl_isAlive) False
+    in Map.alter (maybe (error "Server.PlayerMap.removeOrKillClient") kill)
