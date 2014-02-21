@@ -4,6 +4,7 @@
 
 module Curve.Game.Ball where
 
+import           Safe
 import           Data.Maybe
 import           Data.List
 import           Data.Time
@@ -33,9 +34,9 @@ newBall :: Ball
 newBall = Ball
     0
     (M.mkVec3 0 0 0)
-    (M.mkVec3 3 1 0)
     (M.mkVec3 0 1 0)
-    0
+    (M.mkVec3 0 0 0)
+    1
 
 
 -- use householder reflection
@@ -61,6 +62,8 @@ positionByTime  t ball =
     + M.map (deltaT*deltaT*) (ball^._acceleration)
 
 
+-- TODO: return infinite list instead?
+
 -- get the wall the ball touches next
 intersectionList :: [Wall] -> Ball -> (Wall, NominalDiffTime)
 intersectionList walls ball =
@@ -79,25 +82,19 @@ intersectionList walls ball =
 
 -- get the moment of intersection with this wall 
 intersection :: Wall -> Ball -> Maybe NominalDiffTime
-intersection wall ball =
-    {-let deltaTime'= maximum $ intersectionHelper (wall^._normal) (wall^._center) ball-}
-        {-deltaTime = traceShow deltaTime' deltaTime'-}
-    let newPos t  = (ball^._position)
-                    +. ((ball^._speed)        *. t)
-                    +. ((ball^._acceleration) *. (t*t))
-    in 
-    {-if Wall.isInRectangle wall (newPos deltaTime)-}
-        {-then return $ ball^._referenceTime + realToFrac deltaTime-}
-        {-else Nothing-}
-    do
-    -- fetch all possible results
-    let times = filter ( >= 0) $ intersectionHelper (wall^._normal) (wall^._center) ball
-    -- if there are results, get the maximum
-    {-asdfasdfahsdfk-}
-    deltaTime <- if null times then Nothing else Just (maximum times)
-    if Wall.isInRectangle wall (newPos deltaTime)
-        then return $ ball^._referenceTime + realToFrac deltaTime
-        else Nothing
+intersection wall ball = 
+    let 
+        speedAtTime t = (ball^._speed) +. ((ball^._acceleration) *. t)
+        posAtTime t = (ball^._position) +. (speedAtTime t *. t)
+        isArriving t = (speedAtTime t) `dot` (wall^._normal) < 0
+        -- get all possible intersections
+        isValid t = (t > 0) && (Wall.isInRectangle wall (posAtTime t)) && (isArriving t)
+        times = filter isValid $ intersectionHelper (wall^._normal) (wall^._center) ball
+
+    -- if there are results, get the minimum
+    in do
+    deltaTime <- minimumMay times
+    return $ ball^._referenceTime + realToFrac deltaTime
 
 
 --get list of possible intersection-times
@@ -125,6 +122,7 @@ intersectionHelper wallNormal wallCenter ball =
         c2 = (relativePos -. ballOffset) `dot` wallNormal
     in 
     concat $ map (\(x,y) -> [x,y]) $ catMaybes
+         -- TODO: replace == 0 with eps
          [ if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c1) else (solveSquare a b c1)
          , if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c2) else (solveSquare a b c2) ]
         

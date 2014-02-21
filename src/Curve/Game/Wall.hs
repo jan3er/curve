@@ -24,12 +24,15 @@ data Wall = Wall
     , __updir         :: Vec3 Float
     -- the render or the wall
     , __center        :: Vec3 Float
-    -- (width, height)
+    -- (width, height) max distance from center
     , __dimensions    :: (Float, Float)
     } deriving Show
 makeLenses ''Wall
 
 -----------------------------------
+
+
+{-TODO: constructor which asserts a walls propperties-}
 
 -- first: player walls
 -- second: non-player walls
@@ -66,8 +69,12 @@ initArena radius height noPlayers =
 -- returns true iff the orthogonal projection of ip into the wall's plane is within the wall's dimensions
 isInRectangle :: Wall -> Vec3 Float -> Bool
 isInRectangle wall ip =
-    let matrix                 = fromJust $ M.invert $ M.mkVec3 (wall^._normal) ((wall^._normal) `M.cross` (wall^._updir)) (wall^._updir) 
-        (_:.width:.height:.()) = matrix `M.multmv` (ip -. (wall^._center))
-        (maxWidth, maxHeight)  = wall^._dimensions
-    in (abs width < maxWidth) && (abs height < maxHeight)
+    {-let matrix                 = fromJust $ M.invert $ M.mkVec3 -}
+                                 {-(wall^._normal)-}
+                                 {-((wall^._normal) `M.cross` (wall^._updir)) -}
+                                 {-(wall^._updir) -}
+        {-(_:.y:.z:.()) = matrix `M.multmv` (ip -. (wall^._center))-}
+        {-(width, height)  = wall^._dimensions-}
+    {-in (abs y < width) && (abs z < height)-}
+    True
 
