@@ -69,9 +69,9 @@ shaderProgramFromPath :: String -> IO (GL.Program)
 shaderProgramFromPath name = 
     let basePath = "src/Curve/Client/Render/Shader/"
     in do
-    vs :: GL.VertexShader   <- GLU.loadShader $ basePath ++ name ++ ".vs"
-    fs :: GL.FragmentShader <- GLU.loadShader $ basePath ++ name ++ ".fs"
-    GLU.linkShaderProgram [vs] [fs]
+    vs :: GL.Shader   <- GLU.loadShader GL.VertexShader $ basePath ++ name ++ ".vs"
+    fs :: GL.Shader <- GLU.loadShader GL.FragmentShader $ basePath ++ name ++ ".fs"
+    GLU.linkShaderProgram [vs, fs]
 
 
 initBasicShader :: IO (BasicShader)
