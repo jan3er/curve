@@ -63,12 +63,12 @@ test2 = TestCase $ do
             (M.mkVec3 0 0 0) 
             (1,1)
     let ball = Ball 
-            0
+            2
             (M.mkVec3 0 0 (-111)) 
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 1) 
             1
-    assertEqual "" (Just 10) (intersection wall ball)
+    assertEqual "" (Just 12) (intersection wall ball)
 
 -- leaving the plane
 test3 :: Test

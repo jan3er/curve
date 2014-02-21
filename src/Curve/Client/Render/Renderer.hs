@@ -123,7 +123,7 @@ render res env =
     let posList = ((\x -> x^._2^._paddle^._positions )) <$> (Map.toList $ _env_playerMap env)
 
     GLU.uniformVec (s^.basic_uColor)      $= [1,0,1]
-    GLU.uniformMat (s^.basic_uViewMatrix) $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-20))
+    GLU.uniformMat (s^.basic_uViewMatrix) $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-40))
 
     {-let now = env^.env_timer^.timer_now-}
     {-let deg = realToFrac now-}

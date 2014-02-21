@@ -34,8 +34,8 @@ newBall :: Ball
 newBall = Ball
     0
     (M.mkVec3 0 0 0)
-    (M.mkVec3 0 1 0)
-    (M.mkVec3 0 0 0)
+    (M.mkVec3 3 1 0)
+    (M.mkVec3 0 4 0)
     1
 
 
@@ -73,7 +73,7 @@ intersectionList walls ball =
     in
     case tuples of
         [] -> error "Curve.Game.Wall intersectionList: the ball touched no wall!"
-        xs -> maximumBy (\a b -> compare (a^._2) (b^._2)) xs
+        xs -> minimumBy (\a b -> compare (a^._2) (b^._2)) xs
 
 
 -----------------------------------
