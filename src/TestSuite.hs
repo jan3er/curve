@@ -17,8 +17,6 @@ import           Curve.Game.Math as M
 import           Curve.Game.Wall as Wall
 import           Curve.Game.Ball as Ball
 
-import           Test.Game.Wall
-
 ------------------------------------
 
 
@@ -36,7 +34,7 @@ test0 = TestCase $ do
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 0) 
             1
-    assertEqual "" (Just 10) (intersection wall ball)
+    assertEqual "" (Just 10) (intersectWall wall ball)
 
 -- rotated plane
 test1 :: Test
@@ -52,7 +50,7 @@ test1 = TestCase $ do
             (M.mkVec3 1 1 0) 
             (M.mkVec3 0 0 0) 
             (sqrt 2)
-    assertEqual "" (Just 4) (intersection wall ball)
+    assertEqual "" (Just 4) (intersectWall wall ball)
 
 -- nonzero acceleration
 test2 :: Test
@@ -68,7 +66,7 @@ test2 = TestCase $ do
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 1) 
             1
-    assertEqual "" (Just 12) (intersection wall ball)
+    assertEqual "" (Just 12) (intersectWall wall ball)
 
 -- leaving the plane
 test3 :: Test
@@ -84,7 +82,7 @@ test3 = TestCase $ do
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 0) 
             10
-    assertEqual "" (Nothing) (intersection wall ball)
+    assertEqual "" (Nothing) (intersectWall wall ball)
 
 
 tests = TestList 

@@ -238,8 +238,8 @@ start = withSocketsDo $ do
 
 
     modifyMVar_ mEnv $ execStateT $ do
-        let walls :: ([Wall],[Wall]) = (Wall.initArena 3 3 5)
-        env_world._extraWalls .= (fst walls) ++ (snd walls)
+        let walls = (fst $ Wall.initArena 3 3 5)
+        env_world._extraWalls .= walls
 
     _<- forkBallHandler mEnv
 
@@ -289,24 +289,26 @@ stepEnv = do
 
 forkBallHandler :: MVar Env -> IO ThreadId
 forkBallHandler mEnv = forkIO $ forever $ do
-    env <- readMVar mEnv
 
     modifyMVar_ mEnv $ execStateT stepEnv
+    env <- readMVar mEnv
 
     let walls = env^.env_world^._extraWalls
+    {-putStrLn $ show $ length walls-}
     let ball  = env^.env_world^._ball
     let currentTime = getTime (env^.env_timer)
-    let (wall, intersectTime) = intersectionList walls ball
+    let (wall, intersectTime) = intersectList walls ball
     
     if (currentTime < intersectTime)
         then threadDelay 1
+        {-then return ()-}
         else do 
                 putStrLn "-----------" 
-                let reflectedBall :: Ball = reflect wall currentTime ball
-                modifyMVar_ mEnv (\enva -> return ((env_world._ball) .~ reflectedBall $ enva))
+                let reflectedBall :: Ball = reflect wall intersectTime ball
+                modifyMVar_ mEnv $ execStateT ((env_world._ball) .= reflectedBall)
                 putMsgs . getBallBroadcast =<< readMVar mEnv
 
-                let (_,foo) = intersectionList walls reflectedBall
+                let (_,foo) = intersectList walls reflectedBall
                 print foo
                 {-putStrLn $ show currentTime-}
 

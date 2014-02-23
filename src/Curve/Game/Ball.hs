@@ -8,7 +8,7 @@ import           Safe
 import           Data.Maybe
 import           Data.List
 import           Data.Time
-import           Debug.Trace
+{-import           Debug.Trace-}
 import           Control.Lens
 import           Control.Applicative
 
@@ -34,9 +34,9 @@ newBall :: Ball
 newBall = Ball
     0
     (M.mkVec3 0 0 0)
-    (M.mkVec3 3 1 0)
-    (M.mkVec3 0 4 0)
-    1
+    (M.mkVec3 11 4 0)
+    (M.mkVec3 0 2 0)
+    0
 
 
 -- use householder reflection
@@ -62,13 +62,12 @@ positionByTime  t ball =
     + M.map (deltaT*deltaT*) (ball^._acceleration)
 
 
--- TODO: return infinite list instead?
+-----------------------------------
 
 -- get the wall the ball touches next
-intersectionList :: [Wall] -> Ball -> (Wall, NominalDiffTime)
-intersectionList walls ball =
-    {-let walls = traceShow walls' walls'-}
-    let f wall = (\time -> (wall, time)) <$> intersection wall ball
+intersectList :: [Wall] -> Ball -> (Wall, NominalDiffTime)
+intersectList walls ball =
+    let f wall = (\time -> (wall, time)) <$> intersectWall wall ball
         tuples :: [(Wall, NominalDiffTime)] = catMaybes $ f <$> walls
     in
     case tuples of
@@ -76,38 +75,31 @@ intersectionList walls ball =
         xs -> minimumBy (\a b -> compare (a^._2) (b^._2)) xs
 
 
------------------------------------
-
-
-
 -- get the moment of intersection with this wall 
-intersection :: Wall -> Ball -> Maybe NominalDiffTime
-intersection wall ball = 
+intersectWall :: Wall -> Ball -> Maybe NominalDiffTime
+intersectWall wall ball = 
     let 
-        speedAtTime t = (ball^._speed) +. ((ball^._acceleration) *. t)
-        posAtTime t = (ball^._position) +. (speedAtTime t *. t)
-        isArriving t = (speedAtTime t) `dot` (wall^._normal) < 0
-        -- get all possible intersections
-        isValid t = (t > 0) && (Wall.isInRectangle wall (posAtTime t)) && (isArriving t)
-        times = filter isValid $ intersectionHelper (wall^._normal) (wall^._center) ball
+        {-speedAtTime t = (ball^._speed) +. ((ball^._acceleration) *. t)-}
+        {-posAtTime t = (ball^._position) +. (speedAtTime t *. t)-}
+        {-isArriving t = (speedAtTime t) `dot` (wall^._normal) < 0-}
+        {-isValid t = (Wall.isInRectangle wall (posAtTime t)) && (isArriving t)-}
+        {-isValid t = True-}
 
-    -- if there are results, get the minimum
-    in do
-    deltaTime <- minimumMay times
-    return $ ball^._referenceTime + realToFrac deltaTime
+        time = case intersectInfinitePlane (wall^._normal) (wall^._center) ball of
+            Left () -> Just 0
+            Right maybeTime -> maybeTime 
+
+    in (\t -> ball^._referenceTime + realToFrac t) <$> time
 
 
---get list of possible intersection-times
-intersectionHelper :: Vec3 Float -> Vec3 Float -> Ball -> [Float]
-intersectionHelper wallNormal wallCenter ball =
+-- if the ball lies behind the plane return Left
+-- otherwise a positive value is returned if the ball will hit the wall in the future
+-- nothing if the ball is moving away from the wall
+intersectInfinitePlane :: Vec3 Float -> Vec3 Float -> Ball -> Either () (Maybe Float)
+intersectInfinitePlane wallNormal wallCenter ball =
     let 
-        {-isSmall x = abs x < 0.0000001-}
-        -- position of the ball if wall was in center
         relativePos = (ball^._position) -. wallCenter
-
-        -- offset for the ball's size
-        ballOffset  = wallNormal *. (ball^._size)
-
+        
         --     intersection with plane at time t
         -- <=> (pos + t*dir + t*t*accel) dot normal = 0
         -- <=> t*t*(accel dot normal) + t*(dir dot normal) + (pos dot normal) = 0
@@ -116,29 +108,27 @@ intersectionHelper wallNormal wallCenter ball =
         --       a = accel dot normal
         --       b = dir dot normal
         --       c = pos dot normal
-        a  = (ball^._acceleration)       `dot` wallNormal
-        b  = (ball^._speed)              `dot` wallNormal
-        c1 = (relativePos +. ballOffset) `dot` wallNormal
-        c2 = (relativePos -. ballOffset) `dot` wallNormal
+        a = (ball^._acceleration)       `dot` wallNormal
+        b = (ball^._speed)              `dot` wallNormal
+        c = relativePos `dot` wallNormal - ball^._size
     in 
-    concat $ map (\(x,y) -> [x,y]) $ catMaybes
-         -- TODO: replace == 0 with eps
-         [ if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c1) else (solveSquare a b c1)
-         , if (a == 0) then ((\x -> (x,x)) <$> solveLinear b c2) else (solveSquare a b c2) ]
+    if c < 0 
+    then 
+        Left () 
+    else Right $ do
+        times <- (\(x,y) -> [x,y]) <$> solveQuadratic a b c
+        minimumMay $ filter (>= 0) times
         
 
-solveLinear :: Float -> Float -> Maybe Float
-solveLinear b c = 
-    if (b == 0) then Nothing
-                else Just (-c/b)
-
--- from stack overflow
--- expects a to be nonzero
-solveSquare :: Float -> Float -> Float -> Maybe (Float, Float)
-solveSquare a b c = if d < 0 then
-                Nothing
-                else Just (x1, x2)
-                    where x1 = e + sqrt d / (2 * a)
-                          x2 = e - sqrt d / (2 * a)
-                          d = b * b - 4 * a * c
-                          e = - b / (2 * a)
+solveQuadratic :: Float -> Float -> Float -> Maybe (Float, Float)
+solveQuadratic a b c  
+    | small a && small b && small c = Just (0,0)
+    | small a && small b            = Nothing
+    | small a                       = Just (-c/b, -c/b)
+    | d < 0                         = Nothing
+    | otherwise                     = Just (x1, x2)
+    where x1 = e + sqrt d / (2 * a)
+          x2 = e - sqrt d / (2 * a)
+          d = b * b - 4 * a * c
+          e = - b / (2 * a)
+          small x = abs x < 0.0001
