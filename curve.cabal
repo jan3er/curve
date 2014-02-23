@@ -63,7 +63,6 @@ test-suite TestSuite
                       ,bytestring ==0.10.*
                       ,network ==2.4.*
                       ,safe
-                      ,QuickCheck
                       ,HUnit
                       ,mtl
                       ,lens
