@@ -35,18 +35,19 @@ newBall = Ball
     0
     (M.mkVec3 0 0 0)
     (M.mkVec3 11 4 0)
-    (M.mkVec3 0 2 0)
-    0
+    (M.mkVec3 0 20 0)
+    1
 
 
--- use householder reflection
+-- reflect the ball before the wall
 reflect :: Wall -> NominalDiffTime -> Ball -> Ball
 reflect wall t ball=
     let oldDir = ball^._speed
         dotProduct = oldDir `dot` (wall^._normal)
         newDir = oldDir -. ((wall^._normal) *. (2*dotProduct))
+        newPos = projectBeforeWall wall (positionByTime t ball) (ball^._size)
     in
-    Ball t (positionByTime t ball) newDir (ball^._acceleration) (ball^._size)
+    Ball t newPos newDir (ball^._acceleration) (ball^._size)
     
 
 --only valid for times greater than difftime

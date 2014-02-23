@@ -298,12 +298,16 @@ forkBallHandler mEnv = forkIO $ forever $ do
     let ball  = env^.env_world^._ball
     let currentTime = getTime (env^.env_timer)
     let (wall, intersectTime) = intersectList walls ball
+
+    {-putStrLn "---" -}
+    {-print wall-}
+    {-print intersectTime-}
     
     if (currentTime < intersectTime)
         then threadDelay 1
         {-then return ()-}
         else do 
-                putStrLn "-----------" 
+                putStrLn "==========="
                 let reflectedBall :: Ball = reflect wall intersectTime ball
                 modifyMVar_ mEnv $ execStateT ((env_world._ball) .= reflectedBall)
                 putMsgs . getBallBroadcast =<< readMVar mEnv

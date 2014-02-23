@@ -5,7 +5,7 @@
 module Curve.Game.Wall where
 
 import           Prelude hiding (init)
-import           Data.Maybe
+{-import           Data.Maybe-}
 {-import           Data.List hiding (init)-}
 {-import           Data.Time-}
 {-import           Debug.Trace-}
@@ -68,7 +68,8 @@ initArena radius height noPlayers =
 
 -- returns true iff the orthogonal projection of ip into the wall's plane is within the wall's dimensions
 isInRectangle :: Wall -> Vec3 Float -> Bool
-isInRectangle wall ip =
+isInRectangle _ _ = True
+{-isInRectangle wall ip =-}
     {-let matrix                 = fromJust $ M.invert $ M.mkVec3 -}
                                  {-(wall^._normal)-}
                                  {-((wall^._normal) `M.cross` (wall^._updir)) -}
@@ -76,5 +77,14 @@ isInRectangle wall ip =
         {-(_:.y:.z:.()) = matrix `M.multmv` (ip -. (wall^._center))-}
         {-(width, height)  = wall^._dimensions-}
     {-in (abs y < width) && (abs z < height)-}
-    True
 
+
+
+-- project the point a shortly before the wall
+projectBeforeWall :: Wall -> Vec3 Float -> Float -> Vec3 Float
+projectBeforeWall wall pos size =
+    let 
+        offset = (wall^._center) +. ((wall^._normal) *. size)
+        relativePos = pos -. offset 
+        projection = relativePos -. ((wall^._normal) *. ((wall^._normal) `dot` relativePos))
+    in projection +. offset +. ((wall^._normal) * 0.1)
