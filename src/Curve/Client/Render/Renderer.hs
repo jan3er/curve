@@ -193,13 +193,12 @@ wallTransformationMatrix wall =
 --PUBLIC---------------------------------------------------------------------
 -----------------------------------------------------------------------------
 
-
 initResources :: IO (Resources)
 initResources = do 
   shader    <- initBasicShader
   vaoPaddle <- makeVao shader PaddleVao.array
   vaoWall   <- makeVao shader WallVao.array
-  vaoBall   <- makeVao shader BallVao.array
+  vaoBall   <- makeVao shader (BallVao.array 42 1)
   return $ Resources shader vaoPaddle vaoWall vaoBall
 
 
