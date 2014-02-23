@@ -72,4 +72,5 @@ makeVao s array = do
         GL.vertexAttribPointer (s^.basic_vNormal  ) $= (GL.ToFloat, (s^.basic_vNormalVAD  ))
         GL.vertexAttribPointer (s^.basic_vTexCoord) $= (GL.ToFloat, (s^.basic_vTexCoordVAD))
         GLU.printError
-    return $ MyVao vao GL.Quads (4*6)
+    {-return $ MyVao vao GL.Quads (4*6)-}
+    return $ MyVao vao GL.Quads (fromIntegral $ quot (length array) 2)

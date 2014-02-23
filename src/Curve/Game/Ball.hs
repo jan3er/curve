@@ -34,8 +34,8 @@ newBall :: Ball
 newBall = Ball
     0
     (M.mkVec3 0 0 0)
-    (M.mkVec3 11 4 0)
-    (M.mkVec3 0 20 0)
+    (M.mkVec3 11 8 0)
+    (M.mkVec3 0 17 0)
     1
 
 

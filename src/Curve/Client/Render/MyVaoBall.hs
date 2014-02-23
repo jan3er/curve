@@ -6,48 +6,53 @@ module Curve.Client.Render.MyVaoBall
     )where
 
 
-import qualified Graphics.Rendering.OpenGL as GL
-import           Graphics.Rendering.OpenGL (($=), GLfloat)
-import qualified Graphics.GLUtil as GLU
-import           Control.Lens
-
-import           Curve.Client.Render.GLTypes
-
-
+import Graphics.Rendering.OpenGL (GLfloat)
+import Control.Applicative
+import Curve.Game.Math as M
 -------------------------------------
 
 
 array :: [GLfloat]
-array = (concatMap toArray) $ zip3 
-    (position 1 1 1)
-    normal
-    texCoord
+array = 
+    let x = 100
+    in (concatMap toArray) $ zip3 
+    (toSphere pos   x x)
+    (toSphere norma x x)
+    (toSphere coord x x)
     where toArray ((a,b,c), (d,e,f), (g,h)) = [a,b,c,d,e,f,g,h]
 
--- creates a cube around the center with dimensions 2x 2y 2z
-position :: GLfloat -> GLfloat -> GLfloat -> [(GLfloat, GLfloat, GLfloat)]
-position x y z = 
-    [ ( x, y, z), ( x, y,-z), ( x,-y,-z), ( x,-y, z),
-      ( x, y, z), ( x, y,-z), (-x, y,-z), (-x, y, z),
-      ( x, y, z), ( x,-y, z), (-x,-y, z), (-x, y, z),
-      (-x, y, z), (-x, y,-z), (-x,-y,-z), (-x,-y, z),
-      ( x,-y, z), ( x,-y,-z), (-x,-y,-z), (-x,-y, z),
-      ( x, y,-z), ( x,-y,-z), (-x,-y,-z), (-x, y,-z) ]
 
-normal :: [(GLfloat, GLfloat, GLfloat)]
-normal = concatMap (replicate 4)
-    [ ( 1, 0, 0),
-      ( 0, 1, 0),
-      ( 0, 0, 1),
-      (-1, 0, 0),
-      ( 0,-1, 0),
-      ( 0, 0,-1) ]
+toSphere :: (Integer -> Integer -> Integer -> Integer -> a) -> Integer -> Integer -> [a]
+toSphere transf uMax vMax = concat $ do
+    u <- [0..(uMax-1)]
+    v <- [0..(vMax-1)]
+    return $ toQuad transf u v uMax vMax
 
-texCoord :: [(GLfloat, GLfloat)]
-texCoord = 
-    [ ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0),
-      ( 0, 0), ( 0, 1), ( 1, 1), ( 1, 0) ]
+toQuad :: (Integer -> Integer -> Integer -> Integer -> a) -> Integer -> Integer -> Integer -> Integer -> [a]
+toQuad transf u v uMax vMax = 
+    let u' = (u+1) `mod` uMax
+        v' = (v+1) `mod` vMax
+    in [ transf u  v  uMax vMax 
+       , transf u' v  uMax vMax
+       , transf u' v' uMax vMax
+       , transf u  v' uMax vMax ]
+
+coord :: Integer -> Integer -> Integer -> Integer -> (GLfloat, GLfloat)
+coord u v uMax vMax = 
+    let fracU = (fromInteger u)/(fromInteger uMax)
+        fracV = (fromInteger v)/(fromInteger vMax)
+    in (fracU, fracV)
+
+norma :: Integer -> Integer -> Integer -> Integer -> (GLfloat, GLfloat, GLfloat)
+norma u v uMax vMax = M.mkTuple3 
+                   . M.normalize 
+                   . (\(x,y,z) -> M.mkVec3 x y z) 
+                   $ pos u v uMax vMax
+
+pos :: Integer -> Integer -> Integer -> Integer -> (GLfloat, GLfloat, GLfloat)
+pos u v uMax vMax =
+    let fracU = 2 * pi * ((fromInteger u)/(fromInteger uMax))
+        fracV = 2 * pi * ((fromInteger v)/(fromInteger vMax))
+        (x,y) = (sin fracU, cos fracU)
+        (a,b) = (sin fracV, cos fracV)
+    in (x*a, y*a, b)

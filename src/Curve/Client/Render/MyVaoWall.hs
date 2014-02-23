@@ -6,14 +6,7 @@ module Curve.Client.Render.MyVaoWall
     )where
 
 
-import qualified Graphics.Rendering.OpenGL as GL
-import           Graphics.Rendering.OpenGL (($=), GLfloat)
-import qualified Graphics.GLUtil as GLU
-import           Control.Lens
-
-import           Curve.Client.Render.GLTypes
-
-
+import Graphics.Rendering.OpenGL (GLfloat)
 -------------------------------------
 
 

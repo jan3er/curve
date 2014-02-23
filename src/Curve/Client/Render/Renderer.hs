@@ -31,6 +31,7 @@ import qualified Graphics.GLUtil.Camera3D as GLU
 import           Curve.Client.Render.GLTypes
 import qualified Curve.Client.Render.MyVaoPaddle as PaddleVao
 import qualified Curve.Client.Render.MyVaoWall as WallVao
+import qualified Curve.Client.Render.MyVaoBall as BallVao
 
 import qualified Curve.Game.Math as M
 import           Curve.Game.Math (Vec3, Vec4, Mat33, Mat44)
@@ -55,6 +56,7 @@ data Resources = Resources
     { _res_basicShader      :: BasicShader
     , _res_vaoPaddle        :: MyVao
     , _res_vaoWall          :: MyVao
+    , _res_vaoBall          :: MyVao
     }
 makeLenses ''Resources
 
@@ -138,7 +140,7 @@ render res env =
     GLU.uniformMat (s^.basic_uModelMatrix)      $= (matToGLLists.M.translation)       ballPos
     GLU.uniformMat (s^.basic_uViewMatrix)       $= (matToGLLists.M.translation)       (M.mkVec3 0 0 (-20))
 
-    drawMyVao (res^.res_vaoPaddle)
+    drawMyVao (res^.res_vaoBall)
 
 
     -- draw arena
@@ -197,7 +199,8 @@ initResources = do
   shader    <- initBasicShader
   vaoPaddle <- makeVao shader PaddleVao.array
   vaoWall   <- makeVao shader WallVao.array
-  return $ Resources shader vaoPaddle vaoWall 
+  vaoBall   <- makeVao shader BallVao.array
+  return $ Resources shader vaoPaddle vaoWall vaoBall
 
 
 renderStep :: Env -> StateT Resources IO ()
