@@ -1,6 +1,6 @@
 {-# OPTIONS -Wall #-}
 
-module Test.Network.Network where
+module Test.Game.Network where
 
 import System.IO
 import System.Directory(removeFile,getTemporaryDirectory)
@@ -8,7 +8,7 @@ import Control.Applicative
 
 import Test.HUnit
 
-import Curve.Network.Network
+import Curve.Game.Network
 
 --------------------------------------
 

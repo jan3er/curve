@@ -12,7 +12,7 @@ import qualified Data.Set as Set
 import           System.IO
 {-import           Network.Socket-}
 
-import           Curve.Network.Network
+import           Curve.Game.Network
 {-import           Curve.Game.Player-}
 
 {-import           Control.Monad-}

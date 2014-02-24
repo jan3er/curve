@@ -9,7 +9,7 @@ import           Control.Lens
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-import           Curve.Network.Network
+import           Curve.Game.Network
 
 {-import qualified Curve.Game.Ball as Ball-}
 {-import           Curve.Game.Ball (Ball)-}

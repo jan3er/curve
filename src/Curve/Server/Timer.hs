@@ -3,17 +3,19 @@
 
 module Curve.Server.Timer where
 
-import           Data.Time
-import           Control.Lens
-import           Control.Monad.State
+import Data.Time
+import Control.Lens
+import Control.Monad.State
+
+import Curve.Game.Network
 
 ----------------------------------------
 
-type GameTime = NominalDiffTime
-
 data Timer = Timer
-    { _referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
-    , _localCurrentTime :: UTCTime             -- the current local Time
+    -- the local time at the moment the server initialized its time
+    { _referenceTime    :: UTCTime  
+    -- the current local Time
+    , _localCurrentTime :: UTCTime 
     } deriving Show
 makeLenses ''Timer
 
@@ -23,9 +25,7 @@ makeLenses ''Timer
 new :: IO Timer
 new  = do
     t <- getCurrentTime
-    return $ Timer 
-        t
-        t
+    return $ Timer t t
 
 -- update the internal time of the timer
 ioUpdate :: Timer -> IO Timer
@@ -34,5 +34,5 @@ ioUpdate = execStateT $ do
     localCurrentTime .= currentTime
 
 -- get the game-time
-getTime :: Timer -> GameTime
+getTime :: Timer -> NetworkTime
 getTime timer = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)

@@ -18,7 +18,7 @@ import           Data.Time
 import           Control.Lens
 import           Control.Monad.State
 
-import           Curve.Network.Network
+import           Curve.Game.Network
 
 
 type GameTime = NominalDiffTime

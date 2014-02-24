@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Curve.Network.Network where
+module Curve.Game.Network where
 
 import System.IO
 import Data.Time
@@ -15,13 +15,14 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.State
 import Control.Monad.Loops
-import Data.Aeson.Generic
+import Data.Aeson
+import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BLC
 
 ---------------------------------------------
 
 type NetworkTime = NominalDiffTime
-
+deriveJSON defaultOptions ''NominalDiffTime
 
 
 -- represents a single client
@@ -32,6 +33,7 @@ data Client = Client {
   _cl_isAlive  :: Bool
 } deriving (Data, Typeable, Show, Eq)
 makeLenses ''Client
+deriveJSON defaultOptions ''Client
 
 
 
@@ -71,11 +73,11 @@ data Msg =
     {-| MsgUnknown -}
     deriving (Data, Typeable, Show, Eq)
 makeLenses ''Msg
+deriveJSON defaultOptions ''Msg
 
 
 
--- a message handler is called for each received message
--- it consists of three parts
+-- a consists of three parts and is called for each received message
 --
 -- MsgHandlerPre and MsgHandlerPost perform io-actions or update the local state
 -- before and after receiving a message
@@ -93,9 +95,8 @@ type MsgHandler     a = ( MsgHandlerPre a
 -------------------------------------
 
 
--- one a connection is established this method
--- is called to receive and handle all incomming messages
--- it runs until the connection is closed
+-- one a connection is established receive and handle all incomming messages
+-- runs until the connection is closed
 
 getMsgAndHandle :: Show a => MVar a -> Handle -> MsgHandler a -> IO ()
 getMsgAndHandle mEnv handle handler =
@@ -120,23 +121,27 @@ getMsgAndHandle mEnv handle handler =
 
 
 
+-- send messages
 putMsgs :: [(Handle, Msg)] -> IO ()
 putMsgs = mapM_ (\(h,m) -> putMsg h m)
 
 putMsg :: Handle -> Msg -> IO ()
-putMsg handle msg = do
-    {-putStrLn $ "=> outgoing: " ++ show msg-}
-    putMsg' handle msg
+putMsg handle = hPutStrLn handle . BLC.unpack . encode
 
+-- receive messages
 getMsg :: Handle -> IO (Maybe Msg)
-getMsg handle = do
-    msg <- getMsg' handle
-    {-putStrLn $ "=> incomming: " ++ show msg-}
-    return msg
+getMsg handle = hGetLine handle >>= return . decode . BLC.pack
 
+
+-- for debug output
+{-putMsg :: Handle -> Msg -> IO ()-}
+{-putMsg handle msg = do-}
+    {-putStrLn $ "=> outgoing: " ++ show msg-}
+    {-putMsg' handle msg-}
     
-putMsg' :: Handle -> Msg -> IO ()
-putMsg' handle = hPutStrLn handle . BLC.unpack . encode
+{-getMsg :: Handle -> IO (Maybe Msg)-}
+{-getMsg handle = do-}
+    {-msg <- getMsg' handle-}
+    {-putStrLn $ "=> incomming: " ++ show msg-}
+    {-return msg-}
 
-getMsg' :: Handle -> IO (Maybe Msg)
-getMsg' handle = hGetLine handle >>= return . decode . BLC.pack

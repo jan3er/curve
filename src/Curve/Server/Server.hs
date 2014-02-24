@@ -28,7 +28,7 @@ import           Curve.Game.World as World
 import           Curve.Game.Ball as Ball
 import qualified Curve.Game.Math as M
 
-import           Curve.Network.Network
+import           Curve.Game.Network
 
 ----------------------------------------
 

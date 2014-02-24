@@ -25,7 +25,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 import           Graphics.Rendering.OpenGL (($=))
 
-import           Curve.Network.Network
+import           Curve.Game.Network
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Player
