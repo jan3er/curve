@@ -10,7 +10,6 @@ import           Control.Lens
 import qualified Graphics.Rendering.OpenGL as GL
 
 import           Curve.Network.Network
-import           Curve.Game.Player
 
 {-import qualified Curve.Game.Ball as Ball-}
 {-import           Curve.Game.Ball (Ball)-}
@@ -26,9 +25,7 @@ import           Curve.Client.Timer (Timer)
 
 ----------------------------------------
 
-{-type PlayerMap = Map.Map Int (Player, Maybe Client)-}
 type ClientMap = Map.Map Int Client
-
 
 data Window = Window
     { _window_mousePos   :: GL.Position
@@ -39,15 +36,13 @@ makeLenses ''Window
 
 -- holds the enviornments state
 data Env = Env 
-    { _env_playerMap     :: PlayerMap
-    , _env_clientMap     :: ClientMap
+    { _env_clientMap     :: ClientMap
     , _env_world         :: World
     , _env_handle        :: Handle
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
     , _env_timer         :: Timer
     , _env_window        :: Window
-    {-, _env_ball          :: Ball-}
     } deriving Show
 makeLenses ''Env
 
@@ -58,7 +53,6 @@ initEnv handle = do
     timer <- Timer.init handle
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
     return $ Env Map.empty
-                 Map.empty
                  World.new
                  handle
                  (-1)

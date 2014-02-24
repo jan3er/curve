@@ -26,20 +26,15 @@ import           Curve.Game.Player
 
 -- holds the enviornments state
 data Env = Env 
-    { _env_playerMap   :: PlayerMap
-    , _env_clientMap   :: ClientMap
+    { _env_clientMap   :: ClientMap
     , _env_world       :: World
     , _env_isRunning   :: Bool
     , _env_timer       :: Timer
-    {-, _env_ball        :: Ball-}
     } deriving Show
 makeLenses ''Env
 
 initEnv :: IO Env
 initEnv = Env <$> pure Map.empty
-              <*> pure Map.empty
               <*> pure World.new
               <*> pure False
               <*> Timer.new
-              {-<*> pure Ball.init-}
-

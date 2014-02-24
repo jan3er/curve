@@ -76,7 +76,7 @@ handleMsgPure nr msg = do
 -- TODO: put this somewhere else
 getWorldBroadcast :: Env -> [(Handle,Msg)]
 getWorldBroadcast env = 
-    let nrs           = fst <$> (Map.toList $ env^.env_playerMap)
+    let nrs           = fst <$> (Map.toList $ env^.env_world^._playerMap)
 
         buildTuple :: Int -> (Int, Maybe Client)
         buildTuple nr = (nr, view scl_client <$> Map.lookup nr (env^.env_clientMap))
@@ -142,10 +142,10 @@ forkClient mEnv handle handlerServer = forkIO $ do
             (Just (CMsgHello nick), False) -> do
                 putStrLn "acceptNewClient"
                 let sClient  = SClient handle $ Client nick 0 True
-                let (pm, nr) = Player.add (Player.new) (env^.env_playerMap)
+                let (pm, nr) = Player.add (Player.new) (env^.env_world^._playerMap)
                 let cm       = addClient sClient nr (env^.env_clientMap) 
-                let newEnv   = (env_playerMap .~ pm) $
-                               (env_clientMap .~ cm) env
+                let newEnv   = (env_world._playerMap .~ pm) $
+                               (env_clientMap        .~ cm) env
                 return (newEnv, Just nr)
 
             -- otherwise close socket
@@ -172,9 +172,9 @@ forkClient mEnv handle handlerServer = forkIO $ do
                 modifyMVar_ mEnv $ execStateT $ do
                     isRunning <- use env_isRunning
                     if isRunning
-                        then do env_clientMap %= killClient   nextNr
-                        else do env_clientMap %= removeClient nextNr
-                                env_playerMap %= remove       nextNr
+                        then do env_clientMap        %= killClient   nextNr
+                        else do env_clientMap        %= removeClient nextNr
+                                env_world._playerMap %= remove       nextNr
                     liftIO . putMsgs =<< getWorldBroadcast <$> get
                 hClose handle
 

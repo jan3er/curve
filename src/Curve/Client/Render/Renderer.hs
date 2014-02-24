@@ -122,7 +122,7 @@ render res env =
     let s = res^.res_basicShader
     GL.currentProgram $= Just (s^.basic_program)
 
-    let posList = ((\x -> x^._2^._paddle^._positions )) <$> (Map.toList $ _env_playerMap env)
+    let posList = ((\x -> x^._2^._paddle^._positions )) <$> (Map.toList $ env^.env_world^._playerMap )
 
     GLU.uniformVec (s^.basic_uColor)      $= [1,0,1]
     GLU.uniformMat (s^.basic_uViewMatrix) $= (matToGLLists . M.translation) (0 M.:. 0 M.:. (-40))

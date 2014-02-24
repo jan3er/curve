@@ -90,14 +90,15 @@ handleMsgPure msg = do
             env_nr        .= myNr    
             env_isRunning .= isRunning
             env_clientMap .= (Map.fromList $ catMaybes $
+                                --TODO: this is ugly as fuck
                                 (\(nr, maybeClient) -> do
                                     client <- maybeClient
                                     return (nr, client)
                                 ) <$> clients)
-            env_playerMap .= (Map.fromList $ 
+            env_world._playerMap .= (Map.fromList $ 
                                 (\(nr, _) -> 
                                     (nr, maybe Player.new id 
-                                         (Map.lookup nr (env^.env_playerMap)))
+                                         (Map.lookup nr (env^.env_world^._playerMap)))
                                 ) <$> clients)
             return []
 
@@ -122,7 +123,7 @@ handleMsgPure msg = do
 appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
   let appendToPaddle = _paddle %~ (Paddle.insert posTuple)
-  in  env_playerMap %~ Map.adjust appendToPaddle nr
+  in  env_world._playerMap %~ Map.adjust appendToPaddle nr
 
 -------------------------------------------------------------------------------
 -- MOST CODE ------------------------------------------------------------------
@@ -201,7 +202,7 @@ stepEnv = do
     updateTimer
 
     -- delete all but the last three paddle positions
-    modify $ env_playerMap.mapped._paddle  %~ Paddle.clamp
+    modify $ env_world._playerMap.mapped._paddle  %~ Paddle.clamp
 
     {-env <- get-}
     {-liftIO $ putStrLn $ show env-}
