@@ -57,10 +57,20 @@ data Msg =
                     , _SMsgWorld_isRunning :: Bool }
 
     -- broadcasts the state of the ball everytime it bounces of a wall 
-    | SMsgBall      { _SMsgBall_time       :: NetworkTime
-                    , _SMsgBall_position   :: (Float, Float, Float)
-                    , _SMsgBall_direction  :: (Float, Float, Float)
-                    , _SMsgBall_spin       :: (Float, Float, Float) }
+    | SMsgBall      { _SMsgBall_referenceTime :: NominalDiffTime
+                    , _SMsgBall_position      :: (Float, Float, Float)
+                    , _SMsgBall_direction     :: (Float, Float, Float)
+                    , _SMsgBall_acceleration  :: (Float, Float, Float)
+                    , _SMsgBall_speed         :: Float
+                    , _SMsgBall_size          :: Float }
+                    
+
+                --TODO: derive Ball?
+
+                      {-_SMsgBall_time       :: NetworkTime-}
+                    {-, _SMsgBall_position   :: (Float, Float, Float)-}
+                    {-, _SMsgBall_direction  :: (Float, Float, Float)-}
+                    {-, _SMsgBall_spin       :: (Float, Float, Float) }-}
 
     -- sent by client and server distribute each paddle's 
     -- current position through the network

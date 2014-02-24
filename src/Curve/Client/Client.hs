@@ -122,8 +122,9 @@ handleMsgPure msg = do
         
         -- TODO pass all values here
         -- maybe just serialize the whole ball?
-        SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0 0
+        -- at leat curry/uncurry
+        SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) speed size -> do
+            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) speed size
             return []
 
         _ -> error "Error: Client.handleMsg"

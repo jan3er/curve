@@ -104,8 +104,10 @@ getBallBroadcast env =
         msg = SMsgBall 
                 (ball^.Ball._referenceTime)
                 (M.mkTuple3 $ ball^._position)
-                (M.mkTuple3 $ ball^._velocity)
+                (M.mkTuple3 $ ball^._direction)
                 (M.mkTuple3 $ ball^._acceleration)
+                (ball^.Ball._speed)
+                (ball^.Ball._size)
     in
     (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))
     <$> (connectedClientsNr (env^.env_clientMap))

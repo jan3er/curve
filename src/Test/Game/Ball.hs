@@ -140,7 +140,7 @@ test_reflect0 = TestCase $ do
     (M.mkVec3 10 0 0) @=? positionAtTime 10 ballIn  
     let ballReflect = reflect wall 10 ballIn
 
-    assertEqual "velocity"     (ballExpect^._velocity)     (ballReflect^._velocity)
+    assertEqual "direction"    (ballExpect^._direction)    (ballReflect^._direction)
     assertEqual "position"     (ballExpect^._position)     (ballReflect^._position)
     assertEqual "acceleration" (ballExpect^._acceleration) (ballReflect^._acceleration)
     assertEqual "speed"        (ballExpect^._speed)        (ballReflect^._speed)
