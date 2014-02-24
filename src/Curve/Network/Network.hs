@@ -30,7 +30,7 @@ data Client = Client {
   _cl_nick     :: String,
   _cl_lastMsg  :: NetworkTime,
   _cl_isAlive  :: Bool
-} deriving (Data, Typeable, Show)
+} deriving (Data, Typeable, Show, Eq)
 makeLenses ''Client
 
 
@@ -69,7 +69,7 @@ data Msg =
     | MsgTime       { _MsgTime_time        :: NetworkTime }
 
     {-| MsgUnknown -}
-    deriving (Data, Typeable, Show)
+    deriving (Data, Typeable, Show, Eq)
 makeLenses ''Msg
 
 
@@ -125,13 +125,13 @@ putMsgs = mapM_ (\(h,m) -> putMsg h m)
 
 putMsg :: Handle -> Msg -> IO ()
 putMsg handle msg = do
-    putStrLn $ "=> outgoing: " ++ show msg
+    {-putStrLn $ "=> outgoing: " ++ show msg-}
     putMsg' handle msg
 
 getMsg :: Handle -> IO (Maybe Msg)
 getMsg handle = do
     msg <- getMsg' handle
-    putStrLn $ "=> incomming: " ++ show msg
+    {-putStrLn $ "=> incomming: " ++ show msg-}
     return msg
 
     
