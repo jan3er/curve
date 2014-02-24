@@ -22,7 +22,7 @@ import           Curve.Game.Wall as Wall
 data Ball = Ball
     { __referenceTime :: NominalDiffTime
     , __position      :: Vec3 Float
-    , __velocity      :: Vec3 Float
+    , __direction     :: Vec3 Float
     , __acceleration  :: Vec3 Float
     , __speed         :: Float
     , __size          :: Float
@@ -36,7 +36,7 @@ newBall = Ball
     0
     (M.mkVec3 0 3 0)
     (M.mkVec3 1 1 0)
-    (M.mkVec3 0 0.1 0)
+    (M.mkVec3 0 0 0)
     1
     1
 
@@ -47,13 +47,13 @@ reflect wall t ball=
     let oldVelocity  = (velocityAtTime t ball)
         dotProduct   = oldVelocity `dot` (wall^._normal)
         newDirection = oldVelocity -. ((wall^._normal) *. (2*dotProduct))
-        newVelocity  = (M.normalize newDirection) *. (ball^._speed)
+        {-newVelocity  = (M.normalize newDirection) *. (ball^._speed)-}
         newPosition  = projectBeforeWall wall (positionAtTime t ball) (ball^._size)
     in
     Ball 
         t 
         newPosition 
-        newVelocity 
+        newDirection
         (ball^._acceleration)
         (ball^._speed)
         (ball^._size)
@@ -65,9 +65,9 @@ positionAtTime  t ball =
     let deltaT:: Float = realToFrac $ t - ball^._referenceTime
         {-deltaT = trace (show deltaT') deltaT'-}
     in if t < 0 then (error "Game.Ball.positionAtTime") else 
-                             (ball^._position)
-    + M.map (deltaT*)        (ball^._velocity)
-    + M.map (deltaT*deltaT*) (ball^._acceleration)
+    (ball^._position)
+    + ((ball^._direction)    *. (ball^._speed * deltaT))
+    + ((ball^._acceleration) *. (deltaT * deltaT))
 
 --only valid for times greater than difftime
 velocityAtTime :: NominalDiffTime -> Ball -> Vec3 Float
@@ -75,8 +75,8 @@ velocityAtTime t ball =
     let deltaT:: Float = realToFrac $ t - ball^._referenceTime
         {-deltaT = trace (show deltaT') deltaT'-}
     in if t < 0 then (error "Game.Ball.positionAtTime") else 
-                             (ball^._velocity)
-    + M.map (deltaT*)        (ball^._acceleration)
+      ((ball^._direction)    *. (ball^._speed))
+    + ((ball^._acceleration) *. deltaT)
 
 
 -----------------------------------
@@ -103,7 +103,7 @@ intersectWall wall ball =
         {-posAtTime t = (ball^._position) +. (velocityAtTime t *. t)-}
         {-isArriving t = (velocityAtTime t) `dot` (wall^._normal) < 0-}
         {-isValid t = (Wall.isInRectangle wall (posAtTime t)) && (isArriving t)-}
-        isValidBehind = (ball^._velocity) `dot` (wall^._normal) < 0
+        isValidBehind = (ball^._direction) `dot` (wall^._normal) < 0
 
         time = case intersectInfinitePlane (wall^._normal) (wall^._center) ball of
             Left () -> if isValidBehind then Just 0 else Nothing
@@ -121,15 +121,15 @@ intersectInfinitePlane wallNormal wallCenter ball =
         relativePos = (ball^._position) -. wallCenter
         
         --     intersection with plane at time t
-        -- <=> (pos + t*dir + t*t*accel) dot normal = 0
-        -- <=> t*t*(accel dot normal) + t*(dir dot normal) + (pos dot normal) = 0
+        -- <=> (pos + t*vel + t*t*accel) dot normal = 0
+        -- <=> t*t*(accel dot normal) + t*(vel dot normal) + (pos dot normal) = 0
         -- <=> a*t^2 + b*t + c = 0 
         --     with
         --       a = accel dot normal
-        --       b = dir dot normal
+        --       b = vel dot normal
         --       c = pos dot normal
-        a = (ball^._acceleration)       `dot` wallNormal
-        b = (ball^._velocity)           `dot` wallNormal
+        a = (ball^._acceleration)                  `dot` wallNormal
+        b = ((ball^._direction) *. (ball^._speed)) `dot` wallNormal
         c = relativePos `dot` wallNormal - ball^._size
     in 
     if c < 0 

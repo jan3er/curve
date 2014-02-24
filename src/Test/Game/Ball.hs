@@ -25,6 +25,7 @@ test_intersectWall0 = TestCase $ do
             (M.mkVec3 0 0 (-11)) 
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 0) 
+            1 
             1
     (Just 10) @=? (intersectWall wall ball)
 
@@ -41,6 +42,7 @@ test_intersectWall1 = TestCase $ do
             (M.mkVec3 (-10) 0 0) 
             (M.mkVec3 1 1 0) 
             (M.mkVec3 0 0 0) 
+            1
             (sqrt 2)
     (Just 4) @=? (intersectWall wall ball)
 
@@ -58,6 +60,7 @@ test_intersectWall2 = TestCase $ do
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 1) 
             1
+            1
     (Just 12) @=? (intersectWall wall ball)
 
 -- leaving the plane
@@ -74,6 +77,7 @@ test_intersectWall3 = TestCase $ do
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 1) 
             (M.mkVec3 0 0 0) 
+            1
             10
     (Just 0) @=? (intersectWall wall ball)
 
@@ -100,8 +104,9 @@ test_intersectList0 = TestCase $ do
             (M.mkVec3 0 0 1)
             (M.mkVec3 0 0 1)
             1
+            1
     -- TODO instance Eq
-    12 @=? (snd $ intersectList [wall] ball)
+    12 @=? (intersectList [wall] ball)^._3
 
 test_intersectList:: Test
 test_intersectList = TestList 
@@ -122,6 +127,7 @@ test_reflect0 = TestCase $ do
             (M.mkVec3 1 1 0)
             (M.mkVec3 0 0 0)
             1
+            1
 
     let ballExpect = Ball
             0
@@ -129,13 +135,15 @@ test_reflect0 = TestCase $ do
             (M.mkVec3 (-1) 1 0)
             (M.mkVec3 0 0 0)
             1
+            1
     (Just 10)         @=? (intersectWall wall ballIn)
-    (M.mkVec3 10 0 0) @=? positionByTime 10 ballIn  
+    (M.mkVec3 10 0 0) @=? positionAtTime 10 ballIn  
     let ballReflect = reflect wall 10 ballIn
 
-    assertEqual "speed"        (ballExpect^._speed)        (ballReflect^._speed)
+    assertEqual "velocity"     (ballExpect^._velocity)     (ballReflect^._velocity)
     assertEqual "position"     (ballExpect^._position)     (ballReflect^._position)
     assertEqual "acceleration" (ballExpect^._acceleration) (ballReflect^._acceleration)
+    assertEqual "speed"        (ballExpect^._speed)        (ballReflect^._speed)
     assertEqual "size"         (ballExpect^._size)         (ballReflect^._size)
 
 

@@ -8,7 +8,7 @@ import qualified Data.Map as Map
 import           Data.Map (Map)
 import qualified Data.Set as Set
 {-import           Data.List-}
-{-import           Data.Maybe-}
+import           Data.Maybe
 import           System.IO
 {-import           Network.Socket-}
 
@@ -34,7 +34,7 @@ type ClientMap = Map Int SClient
 -- get client or throw error if it does not exist
 clientFromNr :: Int -> ClientMap -> SClient
 clientFromNr nr cm = 
-     maybe (error "Server.Types.PlayerMap.socketFromNr") id $ Map.lookup nr cm
+     fromMaybe (error "Server.Types.PlayerMap.socketFromNr") $ Map.lookup nr cm
 
 -- return nrs of all connected clients
 connectedClientsNr :: ClientMap -> [Int]

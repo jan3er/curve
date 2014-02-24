@@ -93,10 +93,11 @@ handleMsgPure msg = do
             env_isRunning .= isRunning
  
             -- put all clients in env_clientMap 
-            let getClient (nr, maybeClient) = maybeClient >>= \c -> Just (nr,c)
+            --
+            let tupleFmap nr maybeClient = fmap (\client-> (nr, client)) maybeClient
             env_clientMap .= 
                 ( Map.fromList 
-                . mapMaybe getClient
+                . mapMaybe (uncurry tupleFmap)
                 $ clients )
 
             -- update env_playerMap, add empty players for new player nrs
@@ -119,8 +120,10 @@ handleMsgPure msg = do
             env_timer %= Timer.serverUpdate (MsgTime t)
             return []
         
+        -- TODO pass all values here
+        -- maybe just serialize the whole ball?
         SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) -> do
-            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0
+            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) 0 0
             return []
 
         _ -> error "Error: Client.handleMsg"
@@ -187,7 +190,7 @@ start = do
 
    
     modifyMVar_ mEnv $ execStateT $ do
-        let walls = (fst $ Wall.initArena 3 3 5)
+        let walls = (fst $ Wall.initArena 5 1 10)
         env_world._extraWalls .= walls
 
  

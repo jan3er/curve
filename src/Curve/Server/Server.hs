@@ -104,7 +104,7 @@ getBallBroadcast env =
         msg = SMsgBall 
                 (ball^.Ball._referenceTime)
                 (M.mkTuple3 $ ball^._position)
-                (M.mkTuple3 $ ball^._speed)
+                (M.mkTuple3 $ ball^._velocity)
                 (M.mkTuple3 $ ball^._acceleration)
     in
     (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))
@@ -238,7 +238,7 @@ start = withSocketsDo $ do
 
 
     modifyMVar_ mEnv $ execStateT $ do
-        let walls = (fst $ Wall.initArena 3 3 5)
+        let walls = (fst $ Wall.initArena 5 1 10)
         env_world._extraWalls .= walls
 
     _<- forkBallHandler mEnv
@@ -297,7 +297,7 @@ forkBallHandler mEnv = forkIO $ forever $ do
     {-putStrLn $ show $ length walls-}
     let ball  = env^.env_world^._ball
     let currentTime = getTime (env^.env_timer)
-    let (wall, intersectTime) = intersectList walls ball
+    let (wallIdx, wall, intersectTime) = intersectList walls ball
 
     {-putStrLn "---" -}
     {-print wall-}
@@ -307,14 +307,13 @@ forkBallHandler mEnv = forkIO $ forever $ do
         then threadDelay 1
         {-then return ()-}
         else do 
-                putStrLn "==========="
-                let reflectedBall :: Ball = reflect wall intersectTime ball
-                modifyMVar_ mEnv $ execStateT ((env_world._ball) .= reflectedBall)
-                putMsgs . getBallBroadcast =<< readMVar mEnv
+            putStrLn "==========="
+            print intersectTime
+            print wallIdx
 
-                let (_,foo) = intersectList walls reflectedBall
-                print foo
-                {-putStrLn $ show currentTime-}
+            let reflectedBall :: Ball = reflect wall intersectTime ball
+            modifyMVar_ mEnv $ execStateT ((env_world._ball) .= reflectedBall)
+            putMsgs . getBallBroadcast =<< readMVar mEnv
 
 
     return ()
