@@ -86,20 +86,28 @@ handleMsgPure :: MsgHandlerPure Env
 handleMsgPure msg = do
     env <- get
     case msg of
+        -- the world has changed, adapt local env/world to changes
         SMsgWorld clients myNr isRunning -> do
+
             env_nr        .= myNr    
             env_isRunning .= isRunning
-            env_clientMap .= (Map.fromList $ catMaybes $
-                                --TODO: this is ugly as fuck
-                                (\(nr, maybeClient) -> do
-                                    client <- maybeClient
-                                    return (nr, client)
-                                ) <$> clients)
-            env_world._playerMap .= (Map.fromList $ 
-                                (\(nr, _) -> 
-                                    (nr, maybe Player.new id 
-                                         (Map.lookup nr (env^.env_world^._playerMap)))
-                                ) <$> clients)
+ 
+            -- put all clients in env_clientMap 
+            let getClient (nr, maybeClient) = maybeClient >>= \c -> Just (nr,c)
+            env_clientMap .= 
+                ( Map.fromList 
+                . mapMaybe getClient
+                $ clients )
+
+            -- update env_playerMap, add empty players for new player nrs
+            let getPlayer nr = fromMaybe Player.new (Map.lookup nr (env^.env_world^._playerMap))
+            env_world._playerMap .= 
+                ( Map.fromList
+                . map (\nr -> (nr, getPlayer nr))
+                . map fst
+                $ clients )
+
+            -- do not reply
             return []
 
 

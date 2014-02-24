@@ -20,7 +20,7 @@ import qualified Curve.Server.Timer as Timer
 import           Curve.Server.Timer (Timer)
 
 import           Curve.Server.ClientMap
-import           Curve.Game.Player
+{-import           Curve.Game.Player-}
 
 ----------------------------------------
 
