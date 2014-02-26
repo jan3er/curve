@@ -36,9 +36,9 @@ newBall = Ball
     0
     (M.mkVec3 0 3 0)
     (M.normalize $ M.mkVec3 1 1 0)
-    (M.mkVec3 0 10 0)
-    10
-    1
+    (M.mkVec3 0 20 0)
+    20
+    0.3
 
 
 -- reflect the ball before the wall
@@ -126,9 +126,9 @@ intersectInfinitePlane wallNormal wallCenter ball =
         -- <=> t*t*(accel dot normal) + t*(vel dot normal) + (pos dot normal) = 0
         -- <=> a*t^2 + b*t + c = 0 
         --     with
-        --       a = accel dot normal
-        --       b = dir dot normal
-        --       c = pos dot normal
+        --       a = accel    dot normal
+        --       b = velocity dot normal
+        --       c = pos      dot normal
         a = (ball^._acceleration)                  `dot` wallNormal
         b = ((ball^._direction) *. (ball^._speed)) `dot` wallNormal
         c = relativePos `dot` wallNormal - ball^._size
