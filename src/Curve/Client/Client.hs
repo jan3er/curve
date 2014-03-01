@@ -10,10 +10,12 @@ import           Control.Concurrent
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.State
+import           Control.Monad.Trans.Maybe
 import           Control.Lens
 
 {-import           Debug.Trace-}
 
+import           Safe
 import           Data.Time
 {-import           Data.List-}
 import           Data.Maybe
@@ -116,23 +118,36 @@ handleMsgPure msg = do
             modify $ appendPaddlePos nr (t,x,y)
             return []
 
+        
         MsgTime t -> do
             env_timer %= Timer.serverUpdate (MsgTime t)
             return []
         
-        -- TODO pass all values here
-        -- maybe just serialize the whole ball?
-        -- at leat curry/uncurry
-        SMsgBall t (p1,p2,p3) (d1,d2,d3) (s1,s2,s3) speed size -> do
-            env_world._ball .= Ball t (M.mkVec3 p1 p2 p3) (M.mkVec3 d1 d2 d3) (M.mkVec3 s1 s2 s3) speed size
+
+        -- receive ball update
+        SMsgBall { _SMsgBall_referenceTime = referenceTime
+                 , _SMsgBall_position      = position
+                 , _SMsgBall_direction     = direction
+                 , _SMsgBall_acceleration  = acceleration
+                 , _SMsgBall_speed         = speed
+                 , _SMsgBall_size          = size } -> do
+
+            env_world._ball %= (++[Ball
+                { __referenceTime = referenceTime
+                , __position      = M.mkVec3Uncurry position
+                , __direction     = M.mkVec3Uncurry direction
+                , __acceleration  = M.mkVec3Uncurry acceleration
+                , __speed         = speed
+                , __size          = size }])
             return []
+
 
         _ -> error "Error: Client.handleMsg"
             
 
 
 
-appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
+appendPaddlePos :: Int -> (NetworkTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
   let appendToPaddle = _paddle %~ (Paddle.insert posTuple)
   in  env_world._playerMap %~ Map.adjust appendToPaddle nr
@@ -165,10 +180,7 @@ mouseInput = do
 
 -- keep timer up to date and in sync
 updateTimer :: StateT Env IO ()
-updateTimer = do
-    oldTimer <- use env_timer
-    timer <- liftIO $ Timer.ioUpdate oldTimer
-    env_timer .= timer
+updateTimer = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
 initGL :: IO Resources 
 initGL = do
@@ -176,9 +188,9 @@ initGL = do
     _ <- GLFW.initialize
     _ <- GLFW.openWindow (GL.Size 400 400) [GLFW.DisplayDepthBits 8, GLFW.DisplayAlphaBits 8] GLFW.Window
     ($=) GLFW.windowTitle =<< getProgName
-
     initResources 
     
+
 
 start :: IO ()
 start = do
@@ -204,6 +216,8 @@ start = do
 
     return ()
 
+
+
 stepEnv :: StateT Env IO ()
 stepEnv = do
     -- react to mouse movement
@@ -214,9 +228,10 @@ stepEnv = do
     updateTimer
 
     -- delete all but the last three paddle positions
-    modify $ env_world._playerMap.mapped._paddle  %~ Paddle.clamp
+    env_world._playerMap.mapped._paddle  %= Paddle.clamp
 
-    {-env <- get-}
-    {-liftIO $ putStrLn $ show env-}
-
+    -- get the latest ball
+    currentTime <- getTime <$> use env_timer
+    env_world._ball %= truncBallList currentTime
     
+    return ()

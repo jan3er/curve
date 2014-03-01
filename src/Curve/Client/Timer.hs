@@ -9,33 +9,31 @@ module Curve.Client.Timer
     , getTime
     , serverUpdate
     , ioUpdate
-    , GameTime
+    , NetworkTime
     ) where
 
-{-import           Debug.Trace-}
-import           System.IO
-import           Data.Time
-import           Control.Lens
-import           Control.Monad.State
+import System.IO
+import Data.Time
+import Control.Lens
+import Control.Monad.State
 
-import           Curve.Game.Network
+import Curve.Game.Network
 
-
-type GameTime = NominalDiffTime
+----------------------------------------
 
 data Timer = Timer
     { __referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
     , __localLastQuery   :: UTCTime             -- the local time of the last query
     , __localCurrentTime :: UTCTime             -- the current local Time
     , __waitForResp      :: Bool                -- is there an outstanding reply to a time request?
-    , __handle           :: Handle
+    , __handle           :: Handle              -- the handle connection to the "time server"
     } deriving Show
 makeLenses ''Timer
 
 queryInterval :: Float
 queryInterval = 2
 
---------------------------------------------------------------------------------------
+----------------------------------------
 
 -- get a brand new timer
 init :: Handle -> IO Timer
@@ -84,8 +82,5 @@ ioUpdate = execStateT $ do
 
 
 -- get the game-time
-getTime :: Timer -> GameTime
-{-getTime timer = -}
-    {-let t = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)-}
-    {-in trace (show t) t-}
+getTime :: Timer -> NetworkTime
 getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)

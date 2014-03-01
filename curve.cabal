@@ -41,6 +41,7 @@ executable CurveClient
                       ,aeson ==0.6.*
                       ,bytestring ==0.10.*
                       ,network ==2.4.*
+                      ,transformers
                       ,safe
                       ,mtl
                       ,lens
@@ -63,6 +64,7 @@ test-suite TestSuite
                       ,bytestring ==0.10.*
                       ,network ==2.4.*
                       ,directory
+                      ,transformers
                       ,safe
                       ,HUnit
                       ,mtl
@@ -70,3 +72,7 @@ test-suite TestSuite
                       ,containers
                       ,Vec
                       ,random
+                      ,GLFW
+                      ,OpenGL
+                      ,OpenGLRaw
+                      ,GLUtil

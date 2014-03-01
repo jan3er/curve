@@ -11,7 +11,7 @@ import           Control.Applicative
 {-import           Debug.Trace-}
 import           Data.Time
 {-import           Data.Maybe-}
-{-import           Data.List-}
+import           Data.List
 import qualified Data.Map.Lazy as Map
 {-import           Data.List-}
 
@@ -39,9 +39,7 @@ type MsgHandlerServer a = (MsgHandlerPre a, (Int -> MsgHandlerPure a), MsgHandle
 -------------------------------------------------------------------------------
 
 handleMsgPre :: MsgHandlerPre Env
-handleMsgPre = do 
-    timer <- (\t -> liftIO $ Timer.ioUpdate t) =<< use env_timer
-    env_timer .= timer
+handleMsgPre = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
 handleMsgPost :: MsgHandlerPost Env
 handleMsgPost = return ()
@@ -91,16 +89,17 @@ getWorldBroadcast env =
 
 
 -- TODO: put this somewhere else
-getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Handle,Msg)]
-getPaddleBroadcast nr tup env = 
-    let msg = MsgPaddle nr tup
-    in
-    (\ nr' -> (view scl_handle $ clientFromNr nr' (env^.env_clientMap), msg))
-    <$> (filter (/= nr) $ connectedClientsNr (env^.env_clientMap))
+getPaddleBroadcast :: Int -> (NetworkTime, Float, Float) -> Env -> [(Handle,Msg)]
+getPaddleBroadcast myNr tup env = 
+    let msg            = MsgPaddle myNr tup
+        handleFromNr n = view scl_handle $ clientFromNr n (env^.env_clientMap)
+        nrs            = filter (/= myNr) $ connectedClientsNr (env^.env_clientMap)
+    in zip (handleFromNr <$> nrs) (repeat msg)
 
+-- broadcast the last ball in the ball list
 getBallBroadcast :: Env -> [(Handle,Msg)]
 getBallBroadcast env =
-    let ball = env^.env_world^._ball
+    let ball = last $ env^.env_world^._ball
         msg = SMsgBall 
                 (ball^.Ball._referenceTime)
                 (M.mkTuple3 $ ball^._position)
@@ -247,7 +246,7 @@ start = withSocketsDo $ do
 
     -- run main loop
     _<- forever $ do 
-            threadDelay delayTime 
+            threadDelay (2 * 1000000)
             {-modifyMVar_ mEnv $ execStateT stepEnv-}
 
 
@@ -256,36 +255,10 @@ start = withSocketsDo $ do
 
 
 
-delayTime :: Int
-delayTime = 2 * 1000000
-
 stepEnv :: StateT Env IO ()
 stepEnv = do
-    timer <- (\t -> liftIO $ Timer.ioUpdate t) =<< use env_timer
-    env_timer .= timer
-    
-    {-gen <- liftIO getStdGen-}
-    {-[>let (x,y) = genRange gen<]-}
-    {-[>let xs :: [Float] = map ( / fromIntegral (y-x)) $ randoms gen<]-}
-    {-let xs :: [Float] = map ( / fromIntegral (10)) $ randoms gen-}
-    {-let p1:p2:p3:d1:d2:d3:s1:s2:s3:_ = xs-}
-    {-let msg = SMsgBall (Timer.getTime timer) (0,0,0) (d1,d2,d3) (s1,s2,s3)-}
+    assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
-
-    {-let t :: Int   = (floor  . (*100)) $ Timer.getTime timer-}
-    {-let x :: Float = fromIntegral $ mod t 44-}
-    {-let y :: Float = fromIntegral $ mod t 31-}
-    {-let z :: Float = fromIntegral $ mod t 51-}
-    {-let s = 0.1-}
-    {-let tuple0 = (0,0,0)-}
-    {-let tuple = (x*s, y*s, z*s)-}
-    {-let msg = SMsgBall (Timer.getTime timer) tuple0 tuple0 tuple-}
-
-    {-env <- get-}
-    {-let tuples = (\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))-}
-                 {-<$> (connectedClientsNr (env^.env_clientMap))-}
-    
-    {-liftIO $ putMsgs tuples-}
 
 
 
@@ -296,27 +269,19 @@ forkBallHandler mEnv = forkIO $ forever $ do
     env <- readMVar mEnv
 
     let walls = env^.env_world^._extraWalls
-    {-putStrLn $ show $ length walls-}
-    let ball  = env^.env_world^._ball
+    let ball  = last (env^.env_world^._ball)
+
     let currentTime = getTime (env^.env_timer)
     let (wallIdx, wall, intersectTime) = intersectList walls ball
 
-    {-putStrLn "---" -}
-    {-print wall-}
-    {-print intersectTime-}
-    
-    if (currentTime < intersectTime)
-        then threadDelay 1
-        {-then return ()-}
-        else do 
-            putStrLn "==========="
-            print intersectTime
-            print wallIdx
+    let reflectedBall = reflect wall intersectTime ball
+    modifyMVar_ mEnv $ execStateT ((env_world._ball) %= (++[reflectedBall]))
+    modifyMVar_ mEnv $ execStateT ((env_world._ball) %= (truncBallList currentTime))
 
-            let reflectedBall :: Ball = reflect wall intersectTime ball
-            modifyMVar_ mEnv $ execStateT ((env_world._ball) .= reflectedBall)
-            putMsgs . getBallBroadcast =<< readMVar mEnv
+    putMsgs . getBallBroadcast =<< readMVar mEnv
 
+    threadDelay $ floor $ 1000000 * (intersectTime - currentTime)
+    putStrLn $ "bounce at wall " ++ (show wallIdx)
 
     return ()
     

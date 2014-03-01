@@ -40,6 +40,13 @@ newBall = Ball
     20
     0.3
 
+truncBallList :: NominalDiffTime -> [Ball] -> [Ball]
+truncBallList currentTime balls = fromMaybe balls $ do
+    --TODO maybe assert nonempty
+    let isActive ball = currentTime > ball^._referenceTime
+    activeBall  <- lastMay (takeWhile isActive balls)
+    return $ activeBall : (dropWhile isActive balls)
+    
 
 -- reflect the ball before the wall
 reflect :: Wall -> NominalDiffTime -> Ball -> Ball

@@ -5,10 +5,12 @@ module Curve.Game.Math
     , (+.)
     , (-.)
     , (*.)
-    , mkVec3
-    , mkVec4
     , mkTuple3
     , mkTuple4
+    , mkVec3
+    , mkVec4
+    , mkVec3Uncurry
+    , mkVec4Uncurry
     , from33to44
     ) where
 
@@ -29,6 +31,12 @@ mkVec3 x y z = x V.:. y V.:. z V.:. ()
 
 mkVec4 :: a -> a -> a -> a -> Vec4 a
 mkVec4 w x y z = w V.:. x V.:. y V.:. z V.:. ()
+
+mkVec3Uncurry :: (a,a,a) -> Vec3 a
+mkVec3Uncurry (x,y,z) = x V.:. y V.:. z V.:. ()
+
+mkVec4Uncurry :: (a,a,a,a) -> Vec4 a
+mkVec4Uncurry (w,x,y,z) = w V.:. x V.:. y V.:. z V.:. ()
 
 (-.) :: V.Vec3 Float -> V.Vec3 Float -> V.Vec3 Float
 (-.) a b = V.zipWith (-) a b
