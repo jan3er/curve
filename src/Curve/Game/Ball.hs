@@ -4,18 +4,18 @@
 
 module Curve.Game.Ball where
 
-import           Safe
-import           Data.Maybe
-import           Data.List
-import           Data.Time
-import           Debug.Trace
-import           Control.Lens
-import           Control.Applicative
+import Safe
+import Data.Maybe
+import Data.List
+import Data.Time
+{-import Debug.Trace-}
+import Control.Lens
+import Control.Applicative
 
 import qualified Curve.Game.Math as M
-import           Curve.Game.Math hiding (map, maximum, zipWith)
+import Curve.Game.Math hiding (map, maximum, zipWith)
 
-import           Curve.Game.Wall as Wall
+import Curve.Game.Wall as Wall
 
 -----------------------------------
 
@@ -29,7 +29,7 @@ data Ball = Ball
     } deriving Show
 makeLenses ''Ball
 
--- PUBLIC ---------------------------------
+-----------------------------------
 
 newBall :: Ball
 newBall = Ball
@@ -39,54 +39,39 @@ newBall = Ball
     (M.mkVec3 0 20 0)
     20
     0.3
-
-truncBallList :: NominalDiffTime -> [Ball] -> [Ball]
-truncBallList currentTime balls = fromMaybe balls $ do
-    --TODO maybe assert nonempty
-    let isActive ball = currentTime > ball^._referenceTime
-    activeBall  <- lastMay (takeWhile isActive balls)
-    return $ activeBall : (dropWhile isActive balls)
     
-
--- reflect the ball before the wall
-reflect :: Wall -> NominalDiffTime -> Ball -> Ball
-reflect wall t ball=
-    let oldVelocity  = (velocityAtTime t ball)
-        dotProduct   = oldVelocity `dot` (wall^._normal)
-        newDirection = M.normalize (oldVelocity -. ((wall^._normal) *. (2*dotProduct)))
-        newPosition  = projectBeforeWall wall (positionAtTime t ball) (ball^._size)
-    in
-    Ball 
-        t 
-        newPosition 
-        newDirection
-        (ball^._acceleration)
-        (ball^._speed)
-        (ball^._size)
-    
+-----------------------------------
 
 --only valid for times greater than difftime
 positionAtTime :: NominalDiffTime -> Ball -> Vec3 Float
 positionAtTime  t ball =
     let deltaT:: Float = realToFrac $ t - ball^._referenceTime
-        {-deltaT = trace (show deltaT') deltaT'-}
     in if t < 0 then (error "Game.Ball.positionAtTime") else 
                              (ball^._position)
     + M.map (deltaT*)        ((ball^._direction) *. (ball^._speed))
     + M.map (deltaT*deltaT*) (ball^._acceleration)
 
---only valid for times greater than difftime
-velocityAtTime :: NominalDiffTime -> Ball -> Vec3 Float
-velocityAtTime t ball =
-    let deltaT:: Float = realToFrac $ t - ball^._referenceTime
-        {-deltaT = trace (show deltaT') deltaT'-}
-    in if t < 0 then (error "Game.Ball.velocityAtTime") else 
-      ((ball^._direction) *. (ball^._speed))
-    -- TODO why does squared look so much better?
-    {-+ ((ball^._acceleration) *. deltaT *. deltaT)-}
-    + ((ball^._acceleration) *. deltaT)
+-----------------------------------
 
+-- reflect the ball before the wall
+reflect :: Wall -> NominalDiffTime -> Ball -> Ball
+reflect wall t ball=
 
+    let deltaT        = realToFrac $ t - ball^._referenceTime
+        oldVelocity   = ((ball^._direction)    *. (ball^._speed))
+                      + ((ball^._acceleration) *. deltaT)
+        dotProduct    = oldVelocity `dot` (wall^._normal)
+        newDirection  = M.normalize (oldVelocity -. ((wall^._normal) *. (2*dotProduct)))
+        newPosition   = projectBeforeWall wall (positionAtTime t ball) (ball^._size)
+    in
+    Ball 
+    { __referenceTime = t
+    , __position      = newPosition
+    , __direction     = newDirection
+    , __acceleration  = (ball^._acceleration)
+    , __speed         = (ball^._speed) 
+    , __size          = (ball^._size) }
+    
 -----------------------------------
 
 -- get the wall the ball touches next
@@ -96,7 +81,7 @@ intersectList walls ball =
         tupleFmap idx wall maybeTime = fmap (\time -> (idx, wall, time)) maybeTime
         intersections = catMaybes
                       $ zipWith3 tupleFmap
-                        [0..] walls (flip intersectWall ball <$> walls)
+                        [0..] walls (flip momentOfIntersection ball <$> walls)
     in
     case intersections of
         [] -> error "Curve.Game.Wall intersectionList: the ball touched no wall!"
@@ -104,19 +89,13 @@ intersectList walls ball =
 
 
 -- get the moment of intersection with this wall 
-intersectWall :: Wall -> Ball -> Maybe NominalDiffTime
-intersectWall wall ball = 
+momentOfIntersection :: Wall -> Ball -> Maybe NominalDiffTime
+momentOfIntersection wall ball = 
     let 
-        {-velocityAtTime t = (ball^._di1rection) +. ((ball^._acc2eleration) *. t)-}
-        {-posAtTime t = (ball^._pos2ition) +. (velo2cityAtTime t *. t)-}
-        {-isArriving t = (velo1cityAtTime t) `dot` (wall^._normal) < 0-}
-        {-isValid t = (Wall.isInRectangle wall (posAtTime t)) && (isArriving t)-}
-        isValidBehind = (ball^._direction) `dot` (wall^._normal) < 0
-
+        isMovingAway = (ball^._direction) `dot` (wall^._normal) < 0
         time = case intersectInfinitePlane (wall^._normal) (wall^._center) ball of
-            Left () -> if isValidBehind then Just 0 else Nothing
+            Left ()         -> if isMovingAway then Just 0 else Nothing
             Right maybeTime -> maybeTime 
-
     in (\t -> ball^._referenceTime + realToFrac t) <$> time
 
 
@@ -126,28 +105,28 @@ intersectWall wall ball =
 intersectInfinitePlane :: Vec3 Float -> Vec3 Float -> Ball -> Either () (Maybe Float)
 intersectInfinitePlane wallNormal wallCenter ball =
     let 
-        relativePos = (ball^._position) -. wallCenter
-        
         --     intersection with plane at time t
         -- <=> (pos + t*vel + t*t*accel) dot normal = 0
         -- <=> t*t*(accel dot normal) + t*(vel dot normal) + (pos dot normal) = 0
         -- <=> a*t^2 + b*t + c = 0 
         --     with
-        --       a = accel    dot normal
-        --       b = velocity dot normal
-        --       c = pos      dot normal
+        --         a = accel    dot normal
+        --         b = velocity dot normal
+        --         c = pos      dot normal
         a = (ball^._acceleration)                  `dot` wallNormal
         b = ((ball^._direction) *. (ball^._speed)) `dot` wallNormal
-        c = relativePos `dot` wallNormal - ball^._size
+        c = ((ball^._position) -. wallCenter)      `dot` wallNormal - ball^._size
     in 
     if c < 0 
     then 
         Left () 
-    else Right $ do
+    else 
+        Right $ do
         times <- (\(x,y) -> [x,y]) <$> solveQuadratic a b c
         minimumMay $ filter (>= 0) times
         
 
+-- solve quadratic equation a*x^2 + b*x + c = 0
 solveQuadratic :: Float -> Float -> Float -> Maybe (Float, Float)
 solveQuadratic a b c  
     | small a && small b && small c = Just (0,0)

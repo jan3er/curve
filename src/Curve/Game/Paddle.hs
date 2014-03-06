@@ -4,6 +4,7 @@
 module Curve.Game.Paddle where
 
 import qualified Data.List as L
+import Data.List
 import           Data.Time
 import           Control.Lens
 
@@ -23,3 +24,12 @@ insert entry = _positions %~ (entry:)
 -- x and y dimensions of the paddle
 dimensions :: (Float, Float)
 dimensions = (1, 1)
+
+-- just a stump, TODO
+positionAtTime :: NominalDiffTime -> Paddle -> ((Float, Float), Bool)
+positionAtTime time paddle = 
+    let
+        maybeSucc = find (\(t,_,_) -> t >= time) (paddle^._positions)
+    in case maybeSucc of
+        Just (_,x,y) -> ((x,y), True)
+        Nothing      -> ((0,0), False)

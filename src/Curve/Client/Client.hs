@@ -132,13 +132,13 @@ handleMsgPure msg = do
                  , _SMsgBall_speed         = speed
                  , _SMsgBall_size          = size } -> do
 
-            env_world._ball %= (++[Ball
+            env_world._balls %= (addBall $ Ball
                 { __referenceTime = referenceTime
                 , __position      = M.mkVec3Uncurry position
                 , __direction     = M.mkVec3Uncurry direction
                 , __acceleration  = M.mkVec3Uncurry acceleration
                 , __speed         = speed
-                , __size          = size }])
+                , __size          = size })
             return []
 
 
@@ -232,6 +232,6 @@ stepEnv = do
 
     -- get the latest ball
     currentTime <- getTime <$> use env_timer
-    env_world._ball %= truncBallList currentTime
+    env_world._balls %= truncBalls currentTime
     
     return ()

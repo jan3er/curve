@@ -99,7 +99,8 @@ getPaddleBroadcast myNr tup env =
 -- broadcast the last ball in the ball list
 getBallBroadcast :: Env -> [(Handle,Msg)]
 getBallBroadcast env =
-    let ball = last $ env^.env_world^._ball
+    --TODO take created balls directly
+    let ball = last $ env^.env_world^._balls
         msg = SMsgBall 
                 (ball^.Ball._referenceTime)
                 (M.mkTuple3 $ ball^._position)
@@ -260,6 +261,11 @@ stepEnv = do
     assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
 
+--TODO: this should be done next
+foo :: [Wall] -> PlayerMap -> (Ball, Maybe Int)
+foo walls pm = error "not implemented jet"
+    
+
 
 
 forkBallHandler :: MVar Env -> IO ThreadId
@@ -269,14 +275,16 @@ forkBallHandler mEnv = forkIO $ forever $ do
     env <- readMVar mEnv
 
     let walls = env^.env_world^._extraWalls
-    let ball  = last (env^.env_world^._ball)
+    let ball  = last (env^.env_world^._balls)
 
     let currentTime = getTime (env^.env_timer)
     let (wallIdx, wall, intersectTime) = intersectList walls ball
 
+    let allWalls = env^.env_world^._playerMap
+
     let reflectedBall = reflect wall intersectTime ball
-    modifyMVar_ mEnv $ execStateT ((env_world._ball) %= (++[reflectedBall]))
-    modifyMVar_ mEnv $ execStateT ((env_world._ball) %= (truncBallList currentTime))
+    modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))
+    modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (truncBalls currentTime))
 
     putMsgs . getBallBroadcast =<< readMVar mEnv
 

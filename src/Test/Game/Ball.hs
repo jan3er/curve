@@ -28,8 +28,8 @@ eps = 0.00001
 ------------------------------------
 
 -- the simplest scenario
-test_intersectWall0 :: Test
-test_intersectWall0 = TestCase $ do 
+test_momentOfIntersection0 :: Test
+test_momentOfIntersection0 = TestCase $ do 
     let wall = Wall 
             (M.mkVec3 0 0 (-1)) 
             (M.mkVec3 1 0 0) 
@@ -42,11 +42,11 @@ test_intersectWall0 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1 
             1
-    (Just 10) @=? (intersectWall wall ball)
+    (Just 10) @=? (momentOfIntersection wall ball)
 
 -- rotated plane
-test_intersectWall1 :: Test
-test_intersectWall1 = TestCase $ do 
+test_momentOfIntersection1 :: Test
+test_momentOfIntersection1 = TestCase $ do 
     let wall = Wall 
             (M.normalize $ M.mkVec3 (-1) (-1) 0) 
             (M.mkVec3 0 0 1) 
@@ -59,11 +59,11 @@ test_intersectWall1 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1
             (sqrt 2)
-    (Just 4) @=? (intersectWall wall ball)
+    (Just 4) @=? (momentOfIntersection wall ball)
 
 -- nonzero acceleration
-test_intersectWall2 :: Test
-test_intersectWall2 = TestCase $ do 
+test_momentOfIntersection2 :: Test
+test_momentOfIntersection2 = TestCase $ do 
     let wall = Wall 
             (M.mkVec3 0 0 (-1)) 
             (M.mkVec3 1 0 0) 
@@ -76,11 +76,11 @@ test_intersectWall2 = TestCase $ do
             (M.mkVec3 0 0 1) 
             1
             1
-    (Just 12) @=? (intersectWall wall ball)
+    (Just 12) @=? (momentOfIntersection wall ball)
 
 -- leaving the plane
-test_intersectWall3 :: Test
-test_intersectWall3 = TestCase $ do 
+test_momentOfIntersection3 :: Test
+test_momentOfIntersection3 = TestCase $ do 
     let wall = Wall 
             (M.mkVec3 0 0 1) 
             (M.mkVec3 1 0 0) 
@@ -93,14 +93,14 @@ test_intersectWall3 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1
             10
-    (Nothing) @=? (intersectWall wall ball)
+    (Nothing) @=? (momentOfIntersection wall ball)
 
-test_intersectWall :: Test
-test_intersectWall = TestList 
-    [ TestLabel "test_intersectWall0" test_intersectWall0
-    , TestLabel "test_intersectWall1" test_intersectWall1
-    , TestLabel "test_intersectWall2" test_intersectWall2
-    , TestLabel "test_intersectWall3" test_intersectWall3]
+test_momentOfIntersection :: Test
+test_momentOfIntersection = TestList 
+    [ TestLabel "test_momentOfIntersection0" test_momentOfIntersection0
+    , TestLabel "test_momentOfIntersection1" test_momentOfIntersection1
+    , TestLabel "test_momentOfIntersection2" test_momentOfIntersection2
+    , TestLabel "test_momentOfIntersection3" test_momentOfIntersection3]
 
 -----------------------------------------
 
@@ -130,7 +130,7 @@ test_intersectList = TestList
 reflectionTest :: Wall -> Ball -> Ball -> Float -> Vec3 Float -> Assertion
 reflectionTest wall ballIn ballExpect time posAtTime = do
     -- check time and posAtTime
-    assertEqual "time" (Just $ Close time) ((Close . realToFrac) <$> intersectWall wall ballIn)
+    assertEqual "time" (Just $ Close time) ((Close . realToFrac) <$> momentOfIntersection wall ballIn)
     assertEqual "posAtTime" (M.map Close posAtTime) (M.map Close $ positionAtTime 10 ballIn)
     -- check reflected ball
     let ballReflect = reflect wall 10 ballIn
@@ -201,6 +201,6 @@ test_reflect = TestList
 
 tests :: Test
 tests = TestList 
-    [ TestLabel "intersectWall" test_intersectWall
-    , TestLabel "intersectList" test_intersectList
-    , TestLabel "reflect"       test_reflect]
+    [ TestLabel "momentOfIntersection" test_momentOfIntersection
+    , TestLabel "intersectList"        test_intersectList
+    , TestLabel "reflect"              test_reflect]
