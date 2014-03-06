@@ -41,9 +41,18 @@ truncBalls currentTime balls = fromMaybe balls $ do
     activeBall  <- lastMay (takeWhile isActive balls)
     return $ activeBall : (dropWhile isActive balls)
 
---
 addBall :: Ball -> [Ball] -> [Ball]
 addBall ball balls = balls ++ [ball]
 
 currentBall :: [Ball] -> Ball
 currentBall = head  
+
+----------------------------------------
+
+--TODO: this should be done next
+foo :: [Wall] -> PlayerMap -> (Ball, Maybe Int)
+foo walls pm = error "not implemented jet"
+
+{-doo :: World -> ()-}
+{-doo world =-}
+    {-let -}

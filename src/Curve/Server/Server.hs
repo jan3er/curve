@@ -261,12 +261,6 @@ stepEnv = do
     assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
 
---TODO: this should be done next
-foo :: [Wall] -> PlayerMap -> (Ball, Maybe Int)
-foo walls pm = error "not implemented jet"
-    
-
-
 
 forkBallHandler :: MVar Env -> IO ThreadId
 forkBallHandler mEnv = forkIO $ forever $ do
@@ -278,9 +272,7 @@ forkBallHandler mEnv = forkIO $ forever $ do
     let ball  = last (env^.env_world^._balls)
 
     let currentTime = getTime (env^.env_timer)
-    let (wallIdx, wall, intersectTime) = intersectList walls ball
-
-    let allWalls = env^.env_world^._playerMap
+    let (intersectTime,(wall,wallIdx :: Int)) = intersectList ball (zip walls (zip walls [0..]))
 
     let reflectedBall = reflect wall intersectTime ball
     modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))

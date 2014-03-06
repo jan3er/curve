@@ -42,7 +42,7 @@ test_momentOfIntersection0 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1 
             1
-    (Just 10) @=? (momentOfIntersection wall ball)
+    (Just 10) @=? (momentOfIntersection ball wall)
 
 -- rotated plane
 test_momentOfIntersection1 :: Test
@@ -59,7 +59,7 @@ test_momentOfIntersection1 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1
             (sqrt 2)
-    (Just 4) @=? (momentOfIntersection wall ball)
+    (Just 4) @=? (momentOfIntersection ball wall)
 
 -- nonzero acceleration
 test_momentOfIntersection2 :: Test
@@ -76,7 +76,7 @@ test_momentOfIntersection2 = TestCase $ do
             (M.mkVec3 0 0 1) 
             1
             1
-    (Just 12) @=? (momentOfIntersection wall ball)
+    (Just 12) @=? (momentOfIntersection ball wall)
 
 -- leaving the plane
 test_momentOfIntersection3 :: Test
@@ -93,7 +93,7 @@ test_momentOfIntersection3 = TestCase $ do
             (M.mkVec3 0 0 0) 
             1
             10
-    (Nothing) @=? (momentOfIntersection wall ball)
+    (Nothing) @=? (momentOfIntersection ball wall)
 
 test_momentOfIntersection :: Test
 test_momentOfIntersection = TestList 
@@ -119,7 +119,7 @@ test_intersectList0 = TestCase $ do
             (M.mkVec3 0 0 1)
             1
             1
-    12 @=? (intersectList [wall] ball)^._3
+    12 @=? (intersectList ball [(wall,())])^._1
 
 test_intersectList:: Test
 test_intersectList = TestList 
@@ -130,7 +130,7 @@ test_intersectList = TestList
 reflectionTest :: Wall -> Ball -> Ball -> Float -> Vec3 Float -> Assertion
 reflectionTest wall ballIn ballExpect time posAtTime = do
     -- check time and posAtTime
-    assertEqual "time" (Just $ Close time) ((Close . realToFrac) <$> momentOfIntersection wall ballIn)
+    assertEqual "time" (Just $ Close time) ((Close . realToFrac) <$> momentOfIntersection ballIn wall)
     assertEqual "posAtTime" (M.map Close posAtTime) (M.map Close $ positionAtTime 10 ballIn)
     -- check reflected ball
     let ballReflect = reflect wall 10 ballIn

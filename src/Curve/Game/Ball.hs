@@ -75,22 +75,20 @@ reflect wall t ball=
 -----------------------------------
 
 -- get the wall the ball touches next
-intersectList :: [Wall] -> Ball -> (Int, Wall , NominalDiffTime)
-intersectList walls ball =
-    let
-        tupleFmap idx wall maybeTime = fmap (\time -> (idx, wall, time)) maybeTime
-        intersections = catMaybes
-                      $ zipWith3 tupleFmap
-                        [0..] walls (flip momentOfIntersection ball <$> walls)
+intersectList :: Ball -> [(Wall, a)] -> (NominalDiffTime, a)
+intersectList ball walls =
+    let tupleFmap (maybeTime, a) = maybeTime >>= (flip . curry) Just a
+        intersections = mapMaybe tupleFmap
+                      . map (_1 %~ (momentOfIntersection ball))
     in
-    case intersections of
+    case intersections walls of
         [] -> error "Curve.Game.Wall intersectionList: the ball touched no wall!"
-        xs -> minimumBy (\a b -> compare (a^._3) (b^._3)) xs
+        xs -> minimumBy (\a b -> compare (a^._1) (b^._1)) xs
 
 
 -- get the moment of intersection with this wall 
-momentOfIntersection :: Wall -> Ball -> Maybe NominalDiffTime
-momentOfIntersection wall ball = 
+momentOfIntersection :: Ball -> Wall -> Maybe NominalDiffTime
+momentOfIntersection ball wall = 
     let 
         isMovingAway = (ball^._direction) `dot` (wall^._normal) < 0
         time = case intersectInfinitePlane (wall^._normal) (wall^._center) ball of
