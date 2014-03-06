@@ -17,7 +17,7 @@ import           Curve.Game.World (World)
 {-import           Curve.Game.Wall (Wall)-}
 
 import qualified Curve.Server.Timer as Timer
-import           Curve.Server.Timer (Timer)
+import           Curve.Server.Timer (STimer)
 
 import           Curve.Server.ClientMap
 {-import           Curve.Game.Player-}
@@ -29,7 +29,7 @@ data Env = Env
     { _env_clientMap   :: ClientMap
     , _env_world       :: World
     , _env_isRunning   :: Bool
-    , _env_timer       :: Timer
+    , _env_timer       :: STimer
     } deriving Show
 makeLenses ''Env
 

@@ -21,7 +21,7 @@ import qualified Curve.Game.World as World
 import           Curve.Game.World (World)
 
 import qualified Curve.Client.Timer as Timer
-import           Curve.Client.Timer (Timer)
+import           Curve.Client.Timer (CTimer)
 
 ----------------------------------------
 
@@ -41,7 +41,7 @@ data Env = Env
     , _env_handle        :: Handle
     , _env_nr            :: Int
     , _env_isRunning     :: Bool
-    , _env_timer         :: Timer
+    , _env_timer         :: CTimer
     , _env_window        :: Window
     } deriving Show
 makeLenses ''Env

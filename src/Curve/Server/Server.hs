@@ -29,6 +29,7 @@ import           Curve.Game.Ball as Ball
 import qualified Curve.Game.Math as M
 
 import           Curve.Game.Network
+import           Curve.Game.Timer
 
 ----------------------------------------
 
@@ -64,7 +65,7 @@ handleMsgPure nr msg = do
 
 
         MsgTime _ -> do 
-            msgOut <- MsgTime . Timer.getTime <$> use env_timer
+            msgOut <- MsgTime . getTime <$> use env_timer
             sock <- view scl_handle . clientFromNr nr . view env_clientMap <$> get
             return [(sock, msgOut)]
 
@@ -258,15 +259,18 @@ start = withSocketsDo $ do
 
 stepEnv :: StateT Env IO ()
 stepEnv = do
-    assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
+    assign env_timer =<< liftIO . ioUpdate =<< use env_timer
 
 
 
 forkBallHandler :: MVar Env -> IO ThreadId
 forkBallHandler mEnv = forkIO $ forever $ do
 
+
     modifyMVar_ mEnv $ execStateT stepEnv
     env <- readMVar mEnv
+
+    modifyMVar_ mEnv $ execStateT (env_world %= update (env^.env_timer))
 
     let walls = env^.env_world^._extraWalls
     let ball  = last (env^.env_world^._balls)

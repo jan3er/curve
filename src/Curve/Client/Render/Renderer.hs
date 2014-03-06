@@ -36,13 +36,13 @@ import qualified Curve.Client.Render.MyVaoBall as BallVao
 import qualified Curve.Game.Math as M
 import           Curve.Game.Math (Vec3, Vec4, Mat33, Mat44)
 import           Curve.Client.Types
-import qualified Curve.Client.Timer as Timer
 
 import           Curve.Game.Ball   as Ball 
 import           Curve.Game.Player as Player
 import           Curve.Game.Paddle as Paddle
 import           Curve.Game.Wall   as Wall
 import           Curve.Game.World  as World
+import           Curve.Game.Timer
 
 
 -----------------------------------------------------------
@@ -135,7 +135,7 @@ render res env =
     --------------------------------
     
     GL.currentProgram $= Just (s^.basic_program)
-    let ballPos = Ball.positionAtTime (Timer.getTime $ env^.env_timer) (currentBall $ env^.env_world^._balls)
+    let ballPos = Ball.positionAtTime (getTime $ env^.env_timer) (currentBall $ env^.env_world^._balls)
     GLU.uniformMat (s^.basic_uProjectionMatrix) $= (matToGLLists.getProjectionMatrix) (env^.env_window^.window_size)
     GLU.uniformMat (s^.basic_uModelMatrix)      $= (matToGLLists.M.translation)       ballPos
     GLU.uniformMat (s^.basic_uViewMatrix)       $= (matToGLLists.M.translation)       (M.mkVec3 0 0 (-20))

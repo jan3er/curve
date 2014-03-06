@@ -2,15 +2,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{-module Curve.Client.Timer where-}
-module Curve.Client.Timer
-    ( Timer
-    , Curve.Client.Timer.init
-    , getTime
-    , serverUpdate
-    , ioUpdate
-    , NetworkTime
-    ) where
+module Curve.Client.Timer where
+{-module Curve.Client.Timer-}
+    {-( Timer-}
+    {-, Curve.Client.Timer.init-}
+    {-, getTime-}
+    {-, serverUpdate-}
+    {-, ioUpdate-}
+    {-, NetworkTime-}
+    {-) where-}
 
 import System.IO
 import Data.Time
@@ -18,17 +18,18 @@ import Control.Lens
 import Control.Monad.State
 
 import Curve.Game.Network
+import Curve.Game.Timer
 
 ----------------------------------------
 
-data Timer = Timer
+data CTimer = CTimer
     { __referenceTime    :: UTCTime             -- the local time at the moment the server initialized its time
     , __localLastQuery   :: UTCTime             -- the local time of the last query
     , __localCurrentTime :: UTCTime             -- the current local Time
     , __waitForResp      :: Bool                -- is there an outstanding reply to a time request?
     , __handle           :: Handle              -- the handle connection to the "time server"
     } deriving Show
-makeLenses ''Timer
+makeLenses ''CTimer
 
 queryInterval :: Float
 queryInterval = 2
@@ -36,11 +37,11 @@ queryInterval = 2
 ----------------------------------------
 
 -- get a brand new timer
-init :: Handle -> IO Timer
+init :: Handle -> IO CTimer
 init handle = do
     putMsg handle (MsgTime 0)
     t <- getCurrentTime
-    return $ Timer 
+    return $ CTimer 
         t
         t
         t
@@ -49,7 +50,7 @@ init handle = do
 
 
 -- update the timer with message from the server
-serverUpdate:: Msg -> Timer -> Timer
+serverUpdate:: Msg -> CTimer -> CTimer
 serverUpdate (MsgTime t) timer = 
     let mediumLocalTime = addUTCTime 
             (0.5 * diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery))
@@ -64,7 +65,7 @@ serverUpdate _ _ = error "Timer.update: wrong Msg"
 
 
 -- update the internal time of the timer and maybe get message to be sent to server
-ioUpdate :: Timer -> IO Timer
+ioUpdate :: CTimer -> IO CTimer
 ioUpdate = execStateT $ do
     currentTime <- liftIO $ getCurrentTime
     _localCurrentTime .= currentTime
@@ -82,5 +83,5 @@ ioUpdate = execStateT $ do
 
 
 -- get the game-time
-getTime :: Timer -> NetworkTime
-getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)
+instance Timer CTimer where
+    getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)

@@ -39,12 +39,13 @@ import           Curve.Game.Ball
 import qualified Curve.Game.Math as M
 {-import           Curve.Game.Math (Vec3)-}
 
-import           Curve.Client.Timer as Timer
+import qualified Curve.Client.Timer as CTimer
 {-import           Curve.Game.Ball    as Ball -}
 import           Curve.Game.Player  as Player
 import           Curve.Game.Paddle  as Paddle
 import           Curve.Game.Wall    as Wall
 import           Curve.Game.World   as World
+import           Curve.Game.Timer
 
 
 -- run state in stateT monad
@@ -120,7 +121,7 @@ handleMsgPure msg = do
 
         
         MsgTime t -> do
-            env_timer %= Timer.serverUpdate (MsgTime t)
+            env_timer %= CTimer.serverUpdate (MsgTime t)
             return []
         
 
@@ -173,14 +174,14 @@ mouseInput = do
     when (newPos /= oldPos) $ do
         let (x, y) = (fromIntegral _x, fromIntegral _y)
         env        <- get
-        globalTime <- Timer.getTime <$> use env_timer
+        globalTime <- getTime <$> use env_timer
         modify $ appendPaddlePos (env^.env_nr) (globalTime, x, y)
         liftIO $ putMsg (env^.env_handle) (MsgPaddle (env^.env_nr) (globalTime, x, y))
 
 
 -- keep timer up to date and in sync
 updateTimer :: StateT Env IO ()
-updateTimer = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
+updateTimer = assign env_timer =<< liftIO . CTimer.ioUpdate =<< use env_timer
 
 initGL :: IO Resources 
 initGL = do
@@ -231,7 +232,9 @@ stepEnv = do
     env_world._playerMap.mapped._paddle  %= Paddle.clamp
 
     -- get the latest ball
-    currentTime <- getTime <$> use env_timer
+    timer <- use env_timer
+    let currentTime = getTime timer
+    env_world %= update timer
     env_world._balls %= truncBalls currentTime
     
     return ()
