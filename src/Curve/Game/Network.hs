@@ -30,7 +30,8 @@ deriveJSON defaultOptions ''NominalDiffTime
 data Client = Client {
   _cl_nick     :: String,
   _cl_lastMsg  :: NetworkTime,
-  _cl_isAlive  :: Bool
+  _cl_isAlive  :: Bool,
+  _cl_playerId :: Int
 } deriving (Data, Typeable, Show, Eq)
 makeLenses ''Client
 deriveJSON defaultOptions ''Client
@@ -50,11 +51,19 @@ data Msg =
         
     -- sent to server when establishing the connection
       CMsgHello     { _CMsgHello_nick      :: String }
+    
+    -- broadcasted everytime a player connects/disconnects etc.
+    | SMsgClients   { _SMsgClients_clients   :: [Client] -- all clients in the game
+                    , _SMsgClients_index     :: Int }    -- receivers client is at 
+                                                         -- this index of the list
+
+    ------------------------------------
 
     -- broadcasted everytime a player connects/disconnects etc.
-    | SMsgWorld     { _SMsgWorld_clients   :: [(Int, Maybe Client)]
-                    , _SMsgWorld_clientNr  :: Int
-                    , _SMsgWorld_isRunning :: Bool }
+    {-| SMsgWorld     { _SMsgWorld_clients   :: [(Int, Maybe Client)]-}
+                    {-, _SMsgWorld_clientNr  :: Int-}
+                    {-, _SMsgWorld_isRunning :: Bool }-}
+    
 
     -- broadcasts the state of the ball everytime it bounces of a wall 
     | SMsgBall      { _SMsgBall_referenceTime :: NominalDiffTime

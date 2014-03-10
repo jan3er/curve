@@ -21,39 +21,39 @@ import           Curve.Game.Network
 ----------------------------------------
 
 -- represends one client
-data SClient = SClient 
-    { _scl_handle   :: Handle
-    , _scl_client   :: Client
+data ClientHandle = ClientHandle 
+    { _clh_handle   :: Handle
+    , _clh_client   :: Client
     } deriving Show
-makeLenses ''SClient
+makeLenses ''ClientHandle
 
-type ClientMap = Map Int SClient
+{-type ClientMap = Map Int SClient-}
 
 ----------------------------------------
 
--- get client or throw error if it does not exist
-clientFromNr :: Int -> ClientMap -> SClient
-clientFromNr nr cm = 
-     fromMaybe (error "Server.Types.PlayerMap.socketFromNr") $ Map.lookup nr cm
+{--- get client or throw error if it does not exist-}
+{-clientFromNr :: Int -> ClientMap -> SClient-}
+{-clientFromNr nr cm = -}
+     {-fromMaybe (error "Server.Types.PlayerMap.socketFromNr") $ Map.lookup nr cm-}
 
--- return nrs of all connected clients
-connectedClientsNr :: ClientMap -> [Int]
-connectedClientsNr =
-    let isAlive  = view $ scl_client.cl_isAlive
-    in Set.toList . Map.keysSet . Map.filter isAlive
+{--- return nrs of all connected clients-}
+{-connectedClientsNr :: ClientMap -> [Int]-}
+{-connectedClientsNr =-}
+    {-let isAlive  = view $ scl_client.cl_isAlive-}
+    {-in Set.toList . Map.keysSet . Map.filter isAlive-}
 
--- add a new client to map
-addClient :: SClient -> Int -> ClientMap -> ClientMap
-addClient client nr =
-    let f x = case x of
-                Just _ -> error "Server.ClientMap.addClient nr already in map"
-                Nothing -> Just client
-    in Map.alter f nr
+{--- add a new client to map-}
+{-addClient :: SClient -> Int -> ClientMap -> ClientMap-}
+{-addClient client nr =-}
+    {-let f x = case x of-}
+                {-Just _ -> error "Server.ClientMap.addClient nr already in map"-}
+                {-Nothing -> Just client-}
+    {-in Map.alter f nr-}
     
-removeClient :: Int -> ClientMap -> ClientMap
-removeClient = Map.alter (maybe (error "Server.ClientMap.remove") (\_ -> Nothing))
+{-removeClient :: Int -> ClientMap -> ClientMap-}
+{-removeClient = Map.alter (maybe (error "Server.ClientMap.remove") (\_ -> Nothing))-}
     
-killClient :: Int -> ClientMap -> ClientMap
-killClient = 
-    let kill = Just . set (scl_client.cl_isAlive) False
-    in Map.alter (maybe (error "Server.PlayerMap.removeOrKillClient") kill)
+{-killClient :: Int -> ClientMap -> ClientMap-}
+{-killClient = -}
+    {-let kill = Just . set (scl_client.cl_isAlive) False-}
+    {-in Map.alter (maybe (error "Server.PlayerMap.removeOrKillClient") kill)-}

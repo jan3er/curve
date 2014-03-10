@@ -5,7 +5,6 @@ module Curve.Server.Env where
 
 import           Control.Lens
 import           Control.Applicative
-import qualified Data.Map as Map
 
 import qualified Curve.Game.World as World
 import           Curve.Game.World (World)
@@ -26,7 +25,7 @@ import           Curve.Server.ClientMap
 
 -- holds the enviornments state
 data Env = Env 
-    { _env_clientMap   :: ClientMap
+    { _env_clients     :: [ClientHandle]
     , _env_world       :: World
     , _env_isRunning   :: Bool
     , _env_timer       :: STimer
@@ -34,7 +33,7 @@ data Env = Env
 makeLenses ''Env
 
 initEnv :: IO Env
-initEnv = Env <$> pure Map.empty
+initEnv = Env <$> pure []
               <*> pure World.new
               <*> pure False
               <*> Timer.new
