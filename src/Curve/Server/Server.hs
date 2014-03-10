@@ -280,7 +280,6 @@ forkBallHandler mEnv = forkIO $ forever $ do
 
     let reflectedBall = reflect wall intersectTime ball
     modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))
-    modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (truncBalls currentTime))
 
     putMsgs . getBallBroadcast =<< readMVar mEnv
 

@@ -31,6 +31,8 @@ new = Player
     (Wall (M.mkVec3 0 0 0) (M.mkVec3 0 0 0) (M.mkVec3 0 0 0) (1,1)) 
     (Paddle [])
 
+-- TODO ensure that all ids are in range 0 to n
+-- or replace map with list and index is nr
 
 add :: Player -> PlayerMap -> (PlayerMap, Int)
 add player pm =

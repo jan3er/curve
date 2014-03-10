@@ -233,8 +233,6 @@ stepEnv = do
 
     -- get the latest ball
     timer <- use env_timer
-    let currentTime = getTime timer
     env_world %= update timer
-    env_world._balls %= truncBalls currentTime
     
     return ()

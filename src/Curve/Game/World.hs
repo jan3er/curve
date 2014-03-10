@@ -4,10 +4,10 @@
 module Curve.Game.World where
 
 import Control.Lens
-import Control.Applicative
+{-import Control.Applicative-}
 import Control.Monad.State
 import Data.Time
-import Data.Tuple
+{-import Data.Tuple-}
 import Data.Maybe
 import Safe
 
@@ -21,11 +21,17 @@ import Curve.Game.Timer
 
 ---------------------------------------
 
+data GameStatus = Running
+                | NotRunning
+                | PlayerLost Int 
+    deriving Show
+
 data World = World
     { __currentTime  :: NominalDiffTime 
     , __balls        :: [Ball]          -- ^ the current ball is placed first
     , __extraWalls   :: [Wall]          -- ^ all non-player walls
     , __playerMap    :: Map Int Player
+    , __gameStatus   :: GameStatus
     } deriving Show
 makeLenses ''World
 
@@ -38,22 +44,26 @@ new = World
     , __balls        = [newBall]
     , __extraWalls   = []
     , __playerMap    = Map.empty
+    , __gameStatus   = NotRunning
     }
 
 ---------------------------------------
 
 
+-- to be called imedeately before stuff
 update :: (Timer t) => t -> World -> World
 update timer = execState $ do
     _currentTime .= getTime timer
+    _balls       %= truncBalls (getTime timer)
 
+    where
+    --drop all balls that are no longer relevant
+    truncBalls :: NominalDiffTime -> [Ball] -> [Ball]
+    truncBalls currentTime balls = fromMaybe balls $ do
+        let isActive ball = currentTime > ball^._referenceTime
+        activeBall  <- lastMay (takeWhile isActive balls)
+        return $ activeBall : (dropWhile isActive balls)
 
---drop all balls that are no longer relevant
-truncBalls :: NominalDiffTime -> [Ball] -> [Ball]
-truncBalls currentTime balls = fromMaybe balls $ do
-    let isActive ball = currentTime > ball^._referenceTime
-    activeBall  <- lastMay (takeWhile isActive balls)
-    return $ activeBall : (dropWhile isActive balls)
 
 addBall :: Ball -> [Ball] -> [Ball]
 addBall ball balls = balls ++ [ball]
@@ -63,12 +73,8 @@ currentBall = head
 
 ----------------------------------------
 
---TODO: this should be done next
-{-foo :: [Wall] -> PlayerMap -> (Ball, Maybe Int)-}
-{-foo walls pm = error "not implemented jet"-}
-
-doo :: World -> (NominalDiffTime, (Wall, Maybe Int))
-doo world =
+nextImpact :: World -> (NominalDiffTime, (Wall, Maybe Int))
+nextImpact world =
     let playerWalls  = map (\(nr,wall) -> (wall,(wall,Just nr)))
                      . Map.toList
                      . Map.map (view _wall)
@@ -80,9 +86,87 @@ doo world =
        (playerWalls ++ extraWalls)
              
 
+--TODO (this comes next)
+--two methods:
+--  -to be called at the moment of impact to check the paddle pos
+--  -to be called to get the next ball
+--  (should be generic enough for server and client)
 foo :: World -> ()
 foo world =
     let
-        (momentOfImpact, (wall, maybeNr)) = doo world
+        (momentOfImpact, (wall, maybeNr)) = nextImpact world
     in
         ()
+
+
+
+
+{-
+------------------------
+
+    before the game, when someone joins/leaves 
+        broadcast clientMsg: { [all clients], myNr/idx}
+        
+
+    ------
+
+    before game is running
+        no players at all
+        join/leave messages
+
+    when game is running
+        client list is immutable
+
+   
+
+
+    ------
+
+
+    mainworldmethod, to be called 
+        - by server, once the paddle pos for a given time has arrived
+          to broadcast the real world state
+        - by client to get an approx world state (everytime new info arrives)
+    
+    provides following information
+        - moment of impact
+        - uncertain ball | reflected ball | dropped nr
+
+    need following information
+        - walls (with maybe id)
+        - paddle positions
+        - some sort of time, maybe the currentball just is enough (TODO)
+
+ 
+    mainWorldMethod :: time -> (wall at time, or deduce from time) -> 
+
+    game {
+        [walls]
+        [players]
+        [balls]
+        GameStatus: (TODO eg running...)
+        TODO: see need following information
+        
+    }
+
+    wall {
+        maybe playerid
+    }
+
+    player { 
+        playerid
+        [positions]
+    }
+
+    ~~~~
+
+    serverEnv {
+        [client]
+    }
+
+    client {
+        playerid
+    }
+
+------------------------
+-}
