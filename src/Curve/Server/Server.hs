@@ -3,39 +3,36 @@
 
 module Curve.Server.Server where
 
-import           System.IO
-import           Control.Concurrent
-import           Control.Monad
-import           Control.Monad.Trans.Maybe
-import           Control.Monad.State
-import           Control.Applicative
-{-import           Debug.Trace-}
-import           Data.Time
-{-import           Data.Maybe-}
-import           Data.List
-import           Data.Tuple
-import qualified Data.Map.Lazy as Map
-{-import           Data.List-}
+import System.IO
+import Control.Lens
+import Control.Concurrent
+import Control.Monad
+import Control.Monad.State
+{-import Control.Monad.Trans.Maybe-}
+import Control.Monad.Trans.Error
+import Control.Applicative
+{-import Data.Maybe-}
+{-import Data.Time-}
+{-import Debug.Trace-}
+{-import Data.List-}
+{-import Data.Tuple-}
+{-import qualified Data.Map.Lazy as Map-}
+{-import Data.List-}
 
-import           Network.Socket
+import Network.Socket
 
-import           Control.Lens
+import Curve.Server.Env
+import Curve.Server.ClientMap
+import Curve.Server.Timer as Timer
+{-import Curve.Game.Player as Player-}
+import Curve.Game.Wall as Wall
+import Curve.Game.World as World
+import Curve.Game.Ball as Ball
+{-import qualified Curve.Game.Math as M-}
 
-import           Curve.Server.Env
-import           Curve.Server.ClientMap
-import           Curve.Server.Timer as Timer
-import           Curve.Game.Player as Player
-import           Curve.Game.Wall as Wall
-import           Curve.Game.World as World
-import           Curve.Game.Ball as Ball
-import qualified Curve.Game.Math as M
-
-import           Curve.Game.Network
-import           Curve.Game.Timer
-
-----------------------------------------
-
-type MsgHandlerServer a = (MsgHandlerPre a, (Int -> MsgHandlerPure a), MsgHandlerPost a)
+import Curve.Game.Utils
+import Curve.Game.Network
+import Curve.Game.Timer
 
 -------------------------------------------------------------------------------
 -- IO message handlers --------------------------------------------------------
@@ -48,12 +45,18 @@ handleMsgPost :: MsgHandlerPost Env
 handleMsgPost = return ()
 
 -------------------------------------------------------------------------------
--- pure message handlers ------------------------------------------------------
+-- pure message handler -------------------------------------------------------
 -------------------------------------------------------------------------------
 
+
+handleToClient :: Handle -> [ClientHandle] -> Client
+handleToClient handle list =
+    let f clientHandle = clientHandle^.clh_handle == handle
+    in (head $ filter f list)^.clh_client --TODO
+
 -- this is called for every incomming message
-handleMsgPure :: Int -> MsgHandlerPure Env
-handleMsgPure nr msg = do
+handleMsgPure :: MsgHandlerPure Env
+handleMsgPure handle msg = do
     case msg of
 
         MsgPaddle _ (t, x, y) -> do 
@@ -61,21 +64,12 @@ handleMsgPure nr msg = do
             return []
 
         CMsgHello nick -> do
-            clients <- use env_clients
-            error "foodafooooo not to be called"
-            --TODOa is this message ever called?
-            {-let updateName = fmap $ scl_client.cl_nick .~ nick-}
-            {-modify $ env_clientMap %~ Map.alter updateName nr-}
-            {-getWorldBroadcast <$> get-}
+            error "asdasdfasdf asdfasdf. not to be called"
             return []
-
 
         MsgTime _ -> do 
-            --TODOa
-            {-msgOut <- MsgTime . getTime <$> use env_timer-}
-            {-sock <- view scl_handle . clientFromNr nr . view env_clientMap <$> get-}
-            {-return [(sock, msgOut)]-}
-            return []
+            msgOut <- MsgTime . getTime <$> use env_timer
+            return [(handle, msgOut)]
 
         _ -> error "Server.handleMsg: no handler for this message"
 
@@ -121,8 +115,13 @@ handleMsgPure nr msg = do
     {-(\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))-}
     {-<$> (connectedClientsNr (env^.env_clientMap))-}
     
-getClientBroadcast :: Env -> [(Handle, Msg)]
-getClientBroadcast env =
+
+-------------------------------------------------------------------------------
+-- functions with env ---------------------------------------------------------
+-------------------------------------------------------------------------------
+
+getSMsgClients :: Env -> [(Handle, Msg)]
+getSMsgClients env =
     let clientHandles = env^.env_clients
         makeMsg clientHandle idx = 
             ( clientHandle^.clh_handle
@@ -133,144 +132,21 @@ getClientBroadcast env =
     in zipWith makeMsg clientHandles [0..]
 
 
+addClient :: String -> Handle -> State Env ()
+addClient nick handle = do
+    let client       = Client
+                       { _cl_nick     = nick
+                       , _cl_lastMsg  = 0
+                       , _cl_isAlive  = True
+                       , _cl_playerId = 42 } --TODOb
+    let clientHandle = ClientHandle
+                       { _clh_handle = handle
+                       , _clh_client = client }
+    env_clients %= (clientHandle:)
+
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
 -------------------------------------------------------------------------------
-
-
-modifyMVarStateT :: MVar s -> StateT s IO a -> IO a
-modifyMVarStateT mvar s = modifyMVar mvar (fmap swap . (runStateT s))
-
-modifyMVarState :: MVar s -> State s a -> IO a
-modifyMVarState mvar s = modifyMVar mvar (return . swap . (runState s))
-
--- listen on listenSocket and call forkClient for every incomming connection
-forkListener :: MVar Env -> Socket -> MsgHandlerServer Env -> IO ThreadId
-forkListener mEnv listenSock handler = forkIO $ forever $ do
-    (sock, _) <- accept listenSock
-    handle <- socketToHandle sock ReadWriteMode 
-    hSetBuffering handle NoBuffering
-    forkClient mEnv handle handler
-
-
--- if game is running close socket and return,
--- otherwise add client to game and fork handler
--- when the client disconnects the playermap entry is removed or killed, depending on isRunning
-forkClient :: MVar Env -> Handle -> MsgHandlerServer Env -> IO ThreadId
-forkClient mEnv handle handlerServer = forkIO $ do
-
-    -- wait for the first message on the new connection
-    helloMsg <- getMsg handle
-
-    maybeClients <- modifyMVarState mEnv $ runMaybeT $ do
-        -- make sure the game is not running jet
-        guard . not =<< use env_isRunning
-
-        -- the first message is expected to be a CMsgHello message
-        case helloMsg of
-            Just (CMsgHello nick) -> do
-                let client       = Client
-                                   { _cl_nick     = nick
-                                   , _cl_lastMsg  = 0
-                                   , _cl_isAlive  = True
-                                   , _cl_playerId = 42 } --TODOb
-                let clientHandle = ClientHandle
-                                   { _clh_handle = handle
-                                   , _clh_client = client }
-                env_clients %= (clientHandle:)
-                return =<< use env_clients
-                getClientBroadcast <$> use
-
-            _ -> MaybeT $ return Nothing
-    
-    --TODO from here on
-
-    case maybeClients of
-        -- if the client was added, broadcast the client list again
-        Just clientHandles -> do
-            liftIO $ putStrLn "acceptNewClient"
-            let makeMsg clientHandle idx = 
-                    ( clientHandle^.clh_handle
-                    , SMsgClients 
-                      { _SMsgClients_index   = idx 
-                      , _SMsgClients_clients = ((view clh_client) <$> clientHandles)  }
-                    )
-            liftIO . putMsgs $ zipWith makeMsg clientHandles [0..]
-            
-        -- otherwise close socket
-        Nothing -> do
-            liftIO $ putStrLn "declineNewClient"
-            liftIO $ hClose handle
-            return Nothing
-
-    
-
-    -- will hold the nr of the new player if authentification was valid, otherwise Nothing
-    reply <- modifyMVarStateT mEnv $ do
-        isRunning <- use env_isRunning
-        case (helloMsg, isRunning) of
-
-            (Just (CMsgHello nick), False) -> do
-                liftIO $ putStrLn "acceptNewClient"
-                let client       = Client
-                                   { _cl_nick    = nick
-                                   , _cl_lastMsg = 0
-                                   , _cl_isAlive = True }
-                let clientHandle = ClientHandle
-                                   { _clh_handle = handle
-                                   , _clh_client = client }
-                env_clients %= (clientHandle:)
-                return (Just 4)
-                {-let sClient  = SClient handle $ Client nick 0 True-}
-                {-let (pm, nr) = Player.add (Player.new) (env^.env_world^._playerMap)-}
-                {-let cm       = addClient sClient nr (env^.env_clientMap) -}
-                {-let newEnv   = (env_world._playerMap .~ pm) $-}
-                               {-(env_clientMap        .~ cm) env-}
-                {-return (newEnv, Just nr)-}
-
-            -- otherwise close socket
-            {-_ -> do-}
-                {-liftIO $ putStrLn "declineNewClient"-}
-                {-liftIO $ hClose handle-}
-                {-return Nothing-}
-
-    {-return ()-}
-
-    -------------------------
-    --TRANSFER THIS CODE
-
-    -- if client was added, broadcast world, then start message-handler
-    -- when the client disconnects, broadcast again
-    case maybeNextNr of
-        Just nextNr -> do
-            _ <- forkIO $ do
-                putStrLn "start getMsgAndHandle"
-                
-                -- let everyone know we've got a new client
-                -- TODOa
-                {-putMsgs . getWorldBroadcast =<< readMVar mEnv-}
-
-                -- let the network handler take over
-                let handler = handlerServer & _2 %~ (\f -> f nextNr)
-                getMsgAndHandle mEnv handle handler
-
-                -- drop client when connection is closed, broadcast
-                -- TODOa
-                {-modifyMVar_ mEnv $ execStateT $ do-}
-                    {-isRunning <- use env_isRunning-}
-                    {-if isRunning-}
-                        {-then do env_clientMap        %= killClient   nextNr-}
-                        {-else do env_clientMap        %= removeClient nextNr-}
-                                {-env_world._playerMap %= remove       nextNr-}
-                    {-liftIO . putMsgs =<< getWorldBroadcast <$> get-}
-                hClose handle
-
-                putStrLn "end getMsgAndHandle"
-            return ()
-        _ -> return ()
-    
-    -------------------------
-
 
 
 -- create listening socket and empty env
@@ -295,13 +171,56 @@ setupConnection =
     return (s, e)
 
 
+-- listen on listenSocket and call forkClient for every incomming connection
+listenForClients :: MVar Env -> Socket -> MsgHandler Env -> IO ()
+listenForClients mEnv listenSock handler = forever $ do
+    (sock, _) <- accept listenSock
+    handle <- socketToHandle sock ReadWriteMode 
+    hSetBuffering handle NoBuffering
+    forkIO $ do
+        putStrLn "client connected"
+        result <- runErrorT $ acceptClient mEnv handle handler
+        case result of
+            Right () -> return ()
+            Left e   -> putStrLn e
+        putStrLn "client disconnected"
+        
+
+-- if game is running close socket and return,
+-- otherwise add client to game and fork handler
+-- when the client disconnects the playermap entry is removed or killed, depending on isRunning
+acceptClient :: MVar Env -> Handle -> MsgHandler Env -> ErrorT String IO ()
+acceptClient mEnv handle handler = do
+
+    -- the first message is expected to be of kind CMsgHello
+    msg  <- liftIO $ getMsg handle
+    nick <- case msg of
+        Just (CMsgHello n) -> return n
+        _                  -> throwError "first message was no CMsgHello"
+
+    -- the game is expected to not be running
+    msgs <- modifyMVarErrorT mEnv $ do
+        isRunning <- use env_isRunning
+        if isRunning
+            then do 
+                lift (addClient nick handle)
+                getSMsgClients <$> get
+            else do 
+                throwError "trying to add client while game is already running"
+
+    liftIO $ putMsgs msgs
+    liftIO $ getMsgAndHandle mEnv handle handler
+    -- TODO delete client again once the connection died
+    liftIO $ hClose handle
+
+    
 -------------------------------------------------------------------------------
--- most code ------------------------------------------------------------------
+-------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
 -- this is mostly for debug purposes
-forkSimpleKeyboardHandler :: MVar Env -> IO ThreadId
-forkSimpleKeyboardHandler mEnv = forkIO . forever $ do
+simpleKeyboardHandler :: MVar Env -> IO ()
+simpleKeyboardHandler mEnv = forever $ do
     line <- getLine
     modifyMVar_ mEnv $ execStateT $ case line of
         "toggle" -> do
@@ -322,8 +241,8 @@ start :: IO ()
 start = withSocketsDo $ do
     putStrLn "startServer"
     (listenSock, mEnv) <- setupConnection
-    _<- forkListener mEnv listenSock (handleMsgPre , handleMsgPure, handleMsgPost)
-    _<- forkSimpleKeyboardHandler mEnv
+    _<- forkIO $ listenForClients mEnv listenSock (MsgHandler handleMsgPre handleMsgPure handleMsgPost)
+    _<- forkIO $ simpleKeyboardHandler mEnv
 
 
 

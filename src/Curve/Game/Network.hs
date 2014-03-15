@@ -98,38 +98,34 @@ deriveJSON defaultOptions ''Msg
 
 type MsgHandlerPre  a = StateT a IO ()
 type MsgHandlerPost a = StateT a IO ()
-type MsgHandlerPure a = Msg -> State a [(Handle, Msg)]
-type MsgHandler     a = ( MsgHandlerPre a
-                        , MsgHandlerPure a
-                        , MsgHandlerPost a )
+type MsgHandlerPure a = Handle -> Msg -> State a [(Handle, Msg)]
+data MsgHandler     a = MsgHandler (MsgHandlerPre a) (MsgHandlerPure a) (MsgHandlerPost a)
+
+runHandler :: Handle -> Msg -> MsgHandler a -> StateT a IO [(Handle, Msg)]
+runHandler handle msg (MsgHandler preHandler pureHandler postHandler) = do
+    preHandler
+    msgs <- StateT (return . runState (pureHandler handle msg))
+    postHandler
+    return msgs
+    
 
 -------------------------------------
 
 
--- one a connection is established receive and handle all incomming messages
+-- once a connection is established, receive and handle all incomming messages
 -- runs until the connection is closed
-
 getMsgAndHandle :: Show a => MVar a -> Handle -> MsgHandler a -> IO ()
 getMsgAndHandle mEnv handle handler =
-    
     -- process a message by calling the handler on it
-    let handleMsg msg = do
-            modifyMVar_ mEnv $ execStateT $ do
-                -- MsgHandlerPre
-                handler^._1
-                -- MsgHandlerPure
-                msgs <- StateT (return . runState ((handler^._2) msg))
-                -- MsgHandlerPost
-                handler^._3
-                -- send generated messages
-                liftIO $ mapM_ (\(h,m) -> putMsg h m) msgs
-
-        handleNoMsg = do
-            putStrLn "WARNING: could not decrypt msg"
+    let handleMsg maybeMsg = case maybeMsg of
+            Just msg -> do
+                modifyMVar_ mEnv $ execStateT $ do
+                    msgs <- runHandler handle msg handler
+                    liftIO $ putMsgs msgs
+            Nothing -> do
+                putStrLn "WARNING: could not decrypt msg"
     in do
-    -- process messages as long as the connection is up
-    whileM_ (not <$> hIsEOF handle) (maybe handleNoMsg handleMsg =<< getMsg handle)
-
+    whileM_ (not <$> hIsEOF handle) (getMsg handle >>= handleMsg)
 
 
 -- send messages

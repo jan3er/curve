@@ -21,6 +21,7 @@ executable CurveServer
                       ,aeson ==0.6.*
                       ,bytestring ==0.10.*
                       ,network ==2.4.*
+                      ,transformers
                       ,safe
                       ,mtl
                       ,lens
