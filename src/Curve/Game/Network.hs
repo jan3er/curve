@@ -15,9 +15,12 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.State
 import Control.Monad.Loops
+import Control.Exception hiding (handle)
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BLC
+
+import Curve.Game.Utils
 
 ---------------------------------------------
 
@@ -112,20 +115,23 @@ runHandler handle msg (MsgHandler preHandler pureHandler postHandler) = do
 -------------------------------------
 
 
--- once a connection is established, receive and handle all incomming messages
--- runs until the connection is closed
+-- receive messages on an established connection and call the
+-- handler on them
 getMsgAndHandle :: Show a => MVar a -> Handle -> MsgHandler a -> IO ()
-getMsgAndHandle mEnv handle handler =
-    -- process a message by calling the handler on it
-    let handleMsg maybeMsg = case maybeMsg of
-            Just msg -> do
-                modifyMVar_ mEnv $ execStateT $ do
-                    msgs <- runHandler handle msg handler
-                    liftIO $ putMsgs msgs
-            Nothing -> do
-                putStrLn "WARNING: could not decrypt msg"
-    in do
-    whileM_ (not <$> hIsEOF handle) (getMsg handle >>= handleMsg)
+getMsgAndHandle mEnv handle handler = do
+    result :: Either IOException () <- 
+        try $ whileM_ (not <$> hIsEOF handle) $ do
+            maybeMsg <- getMsg handle
+            case maybeMsg of
+                Just msg -> do
+                    modifyMVarStateT mEnv $ do
+                        msgs <- runHandler handle msg handler
+                        liftIO $ putMsgs msgs
+                Nothing -> do
+                    putStrLn "WARNING: could not decrypt msg"
+    case result of
+        Left _   -> return ()
+        Right () -> return ()
 
 
 -- send messages

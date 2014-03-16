@@ -144,6 +144,10 @@ addClient nick handle = do
                        , _clh_client = client }
     env_clients %= (clientHandle:)
 
+removeClient :: Handle -> State Env ()
+removeClient handle = do
+    env_clients %= filter ((/=) handle . view clh_handle)
+
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -182,7 +186,7 @@ listenForClients mEnv listenSock handler = forever $ do
         result <- runErrorT $ acceptClient mEnv handle handler
         case result of
             Right () -> return ()
-            Left e   -> putStrLn e
+            Left e   -> putStrLn ("ERROR: " ++ e)
         putStrLn "client disconnected"
         
 
@@ -198,19 +202,24 @@ acceptClient mEnv handle handler = do
         Just (CMsgHello n) -> return n
         _                  -> throwError "first message was no CMsgHello"
 
-    -- the game is expected to not be running
+    -- the game is expected not to be running when a client joins
     msgs <- modifyMVarErrorT mEnv $ do
         isRunning <- use env_isRunning
         if isRunning
             then do 
+                throwError "trying to add client while game is already running"
+            else do 
                 lift (addClient nick handle)
                 getSMsgClients <$> get
-            else do 
-                throwError "trying to add client while game is already running"
 
+    -- broadcast the changed client list
     liftIO $ putMsgs msgs
+
+    -- let the handler take over until the connection dies
     liftIO $ getMsgAndHandle mEnv handle handler
-    -- TODO delete client again once the connection died
+
+    -- remove the client afterwards
+    liftIO $ modifyMVarState mEnv (removeClient handle)
     liftIO $ hClose handle
 
     
@@ -230,8 +239,7 @@ simpleKeyboardHandler mEnv = forever $ do
             {-list <- getWorldBroadcast <$> get-}
             {-liftIO $ putMsgs list -}
         "env" -> do
-            join $ (liftIO . putStrLn . show) <$> get
-            
+            liftIO . putStrLn =<<  show <$> get
         _ -> do
             liftIO $ putStrLn "unknown command"
 
@@ -294,4 +302,3 @@ forkBallHandler mEnv = forkIO $ forever $ do
     putStrLn $ "bounce at wall " ++ (show wallIdx)
 
     return ()
-    

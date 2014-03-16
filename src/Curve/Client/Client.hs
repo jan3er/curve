@@ -85,62 +85,65 @@ forkMsgHandler mEnv handler = do
 -- pure message handlers ------------------------------------------------------
 -------------------------------------------------------------------------------
 
+msgHandler :: MsgHandler Env
+msgHandler  = MsgHandler (return ()) handleMsgPure (return ())
+
 handleMsgPure :: MsgHandlerPure Env
-handleMsgPure msg = do
+handleMsgPure handle msg = do
     env <- get
     case msg of
         -- the world has changed, adapt local env/world to changes
-        SMsgWorld clients myNr isRunning -> do
+        {-SMsgWorld clients myNr isRunning -> do-}
 
-            env_nr        .= myNr    
-            env_isRunning .= isRunning
+            {-env_nr        .= myNr    -}
+            {-env_isRunning .= isRunning-}
  
-            -- put all clients in env_clientMap 
-            --
-            let tupleFmap nr maybeClient = fmap (\client-> (nr, client)) maybeClient
-            env_clientMap .= 
-                ( Map.fromList 
-                . mapMaybe (uncurry tupleFmap)
-                $ clients )
+            {--- put all clients in env_clientMap -}
+            {----}
+            {-let tupleFmap nr maybeClient = fmap (\client-> (nr, client)) maybeClient-}
+            {-env_clientMap .= -}
+                {-( Map.fromList -}
+                {-. mapMaybe (uncurry tupleFmap)-}
+                {-$ clients )-}
 
-            -- update env_playerMap, add empty players for new player nrs
-            let getPlayer nr = fromMaybe Player.new (Map.lookup nr (env^.env_world^._playerMap))
-            env_world._playerMap .= 
-                ( Map.fromList
-                . map (\nr -> (nr, getPlayer nr))
-                . map fst
-                $ clients )
+            {--- update env_playerMap, add empty players for new player nrs-}
+            {-let getPlayer nr = fromMaybe Player.new (Map.lookup nr (env^.env_world^._playerMap))-}
+            {-env_world._playerMap .= -}
+                {-( Map.fromList-}
+                {-. map (\nr -> (nr, getPlayer nr))-}
+                {-. map fst-}
+                {-$ clients )-}
 
-            -- do not reply
-            return []
+            {--- do not reply-}
+            {-return []-}
 
 
-        MsgPaddle nr (t,x,y) -> do
-            modify $ appendPaddlePos nr (t,x,y)
-            return []
+        {-MsgPaddle nr (t,x,y) -> do-}
+            {-modify $ appendPaddlePos nr (t,x,y)-}
+            {-return []-}
 
         
-        MsgTime t -> do
-            env_timer %= CTimer.serverUpdate (MsgTime t)
-            return []
+        {-MsgTime t -> do-}
+            {-env_timer %= CTimer.serverUpdate (MsgTime t)-}
+            {-return []-}
         
 
-        -- receive ball update
-        SMsgBall { _SMsgBall_referenceTime = referenceTime
-                 , _SMsgBall_position      = position
-                 , _SMsgBall_direction     = direction
-                 , _SMsgBall_acceleration  = acceleration
-                 , _SMsgBall_speed         = speed
-                 , _SMsgBall_size          = size } -> do
+        {--- receive ball update-}
+        {-SMsgBall { _SMsgBall_referenceTime = referenceTime-}
+                 {-, _SMsgBall_position      = position-}
+                 {-, _SMsgBall_direction     = direction-}
+                 {-, _SMsgBall_acceleration  = acceleration-}
+                 {-, _SMsgBall_speed         = speed-}
+                 {-, _SMsgBall_size          = size } -> do-}
 
-            env_world._balls %= (addBall $ Ball
-                { __referenceTime = referenceTime
-                , __position      = M.mkVec3Uncurry position
-                , __direction     = M.mkVec3Uncurry direction
-                , __acceleration  = M.mkVec3Uncurry acceleration
-                , __speed         = speed
-                , __size          = size })
-            return []
+            {-env_world._balls %= (addBall $ Ball-}
+                {-{ __referenceTime = referenceTime-}
+                {-, __position      = M.mkVec3Uncurry position-}
+                {-, __direction     = M.mkVec3Uncurry direction-}
+                {-, __acceleration  = M.mkVec3Uncurry acceleration-}
+                {-, __speed         = speed-}
+                {-, __size          = size })-}
+            {-return []-}
 
 
         _ -> error "Error: Client.handleMsg"
@@ -200,7 +203,7 @@ start = do
     startRes <- initGL
 
     -- connect to server
-    mEnv <- establishConnection "jan" (return (), handleMsgPure, return ())
+    mEnv <- establishConnection "jan" msgHandler
 
    
     modifyMVar_ mEnv $ execStateT $ do
