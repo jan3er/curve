@@ -1,5 +1,9 @@
 {-# OPTIONS -Wall #-}
 
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module Curve.Game.Math 
     ( module Data.Vec
     , (+.)
@@ -18,6 +22,24 @@ module Curve.Game.Math
 import           Data.Vec
 import qualified Data.Vec as V
 
+import Data.Aeson
+import Control.Monad
+
+--------------------------
+
+instance ToJSON (Vec3 Float) where
+   toJSON (x:.y:.z:.())= object ["x" .= x, "y" .= y, "z" .= z]
+
+instance FromJSON (Vec3 Float) where
+    parseJSON (Object v) = do
+        x <- v .: "x"
+        y <- v .: "y"
+        z <- v .: "z"
+        return $ (x:.y:.z:.())
+    parseJSON _          = mzero
+        
+
+-- A non-Object value is of the wrong type, so use mzero to fail.
 --------------------------
 
 mkTuple3 :: Vec3 a -> (a,a,a)

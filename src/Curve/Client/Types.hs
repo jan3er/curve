@@ -25,8 +25,6 @@ import           Curve.Client.Timer (CTimer)
 
 ----------------------------------------
 
-type ClientMap = Map.Map Int Client
-
 data Window = Window
     { _window_mousePos   :: GL.Position
     , _window_size       :: GL.Size
@@ -36,10 +34,10 @@ makeLenses ''Window
 
 -- holds the enviornments state
 data Env = Env 
-    { _env_clientMap     :: ClientMap
+    { _env_clients       :: [Client]
     , _env_world         :: World
     , _env_handle        :: Handle
-    , _env_nr            :: Int
+    , _env_playerId      :: Int
     , _env_isRunning     :: Bool
     , _env_timer         :: CTimer
     , _env_window        :: Window
@@ -52,10 +50,11 @@ initEnv :: Handle -> IO Env
 initEnv handle = do
     timer <- Timer.init handle
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
-    return $ Env Map.empty
-                 World.new
-                 handle
-                 (-1)
-                 False
-                 timer
-                 window
+    return $ Env 
+        { _env_clients   = []
+        , _env_world     = World.new
+        , _env_handle    = handle
+        , _env_playerId  = (-1)
+        , _env_isRunning = False
+        , _env_timer     = timer
+        , _env_window    = window }

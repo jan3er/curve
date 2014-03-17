@@ -9,7 +9,7 @@ module Curve.Client.Timer where
     {-, getTime-}
     {-, serverUpdate-}
     {-, ioUpdate-}
-    {-, NetworkTime-}
+    {-, NominalDiffTime-}
     {-) where-}
 
 import System.IO
@@ -18,6 +18,7 @@ import Control.Lens
 import Control.Monad.State
 
 import Curve.Game.Network
+import Curve.Game.Message
 import Curve.Game.Timer
 
 ----------------------------------------
@@ -39,7 +40,7 @@ queryInterval = 2
 -- get a brand new timer
 init :: Handle -> IO CTimer
 init handle = do
-    putMsg handle (MsgTime 0)
+    putMessage handle (MessageTime 0)
     t <- getCurrentTime
     return $ CTimer 
         t
@@ -50,8 +51,8 @@ init handle = do
 
 
 -- update the timer with message from the server
-serverUpdate:: Msg -> CTimer -> CTimer
-serverUpdate (MsgTime t) timer = 
+serverUpdate:: Message -> CTimer -> CTimer
+serverUpdate (MessageTime t) timer = 
     let mediumLocalTime = addUTCTime 
             (0.5 * diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery))
             (timer^._localLastQuery) 
@@ -61,7 +62,7 @@ serverUpdate (MsgTime t) timer =
         { __referenceTime = newReferenceTime
         , __waitForResp   = False 
         } 
-serverUpdate _ _ = error "Timer.update: wrong Msg"
+serverUpdate _ _ = error "Timer.update: wrong Message"
 
 
 -- update the internal time of the timer and maybe get message to be sent to server
@@ -76,7 +77,7 @@ ioUpdate = execStateT $ do
         then do
             _waitForResp    .= True
             _localLastQuery .= currentTime
-            liftIO $ putMsg (timer^._handle) (MsgTime 0)
+            liftIO $ putMessage (timer^._handle) (MessageTime 0)
             return ()
         else do
             return ()

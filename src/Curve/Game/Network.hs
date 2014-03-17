@@ -8,153 +8,50 @@ module Curve.Game.Network where
 
 import System.IO
 import Data.Time
-import Data.Typeable
-import Data.Data
-import Control.Concurrent
-import Control.Applicative
 import Control.Lens
-import Control.Monad.State
-import Control.Monad.Loops
-import Control.Exception hiding (handle)
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BLC
 
-import Curve.Game.Utils
-
 ---------------------------------------------
 
-type NetworkTime = NominalDiffTime
 deriveJSON defaultOptions ''NominalDiffTime
-
 
 -- represents a single client
 -- this datastructure is used by client and server alike
 data Client = Client {
-  _cl_nick     :: String,
-  _cl_lastMsg  :: NetworkTime,
-  _cl_isAlive  :: Bool,
-  _cl_playerId :: Int
-} deriving (Data, Typeable, Show, Eq)
+  _cl_nick         :: String,
+  _cl_lastMessage  :: NominalDiffTime,
+  _cl_isAlive      :: Bool,
+  _cl_playerId     :: Int
+} deriving (Show, Eq)
 makeLenses ''Client
 deriveJSON defaultOptions ''Client
 
 
-
--- Msg is the central datatype for network communication
--- Messages of this type are serialized and sent back and forth.
--- communication happens between the server and each client,
--- but not between clients.
---
--- messages prefixed with a C are intended to be send from client to server
--- and messages prefixed with a S from server to client
--- messages without a prefix may be sent in both directions
-
-data Msg = 
-        
-    -- sent to server when establishing the connection
-      CMsgHello     { _CMsgHello_nick      :: String }
-    
-    -- broadcasted everytime a player connects/disconnects etc.
-    | SMsgClients   { _SMsgClients_clients   :: [Client] -- all clients in the game
-                    , _SMsgClients_index     :: Int }    -- receivers client is at 
-                                                         -- this index of the list
-
-    ------------------------------------
-
-    -- broadcasted everytime a player connects/disconnects etc.
-    {-| SMsgWorld     { _SMsgWorld_clients   :: [(Int, Maybe Client)]-}
-                    {-, _SMsgWorld_clientNr  :: Int-}
-                    {-, _SMsgWorld_isRunning :: Bool }-}
-    
-
-    -- broadcasts the state of the ball everytime it bounces of a wall 
-    | SMsgBall      { _SMsgBall_referenceTime :: NominalDiffTime
-                    , _SMsgBall_position      :: (Float, Float, Float)
-                    , _SMsgBall_direction     :: (Float, Float, Float)
-                    , _SMsgBall_acceleration  :: (Float, Float, Float)
-                    , _SMsgBall_speed         :: Float
-                    , _SMsgBall_size          :: Float }
-
-    -- sent by client and server distribute each paddle's 
-    -- current position through the network
-    | MsgPaddle     { _MsgPaddle_nr        :: Int
-                    , _MsgPaddle_pos       :: (NetworkTime, Float, Float) }
-
-    -- synchronize clients to the server's clock
-    | MsgTime       { _MsgTime_time        :: NetworkTime }
-
-    {-| MsgUnknown -}
-    deriving (Data, Typeable, Show, Eq)
-makeLenses ''Msg
-deriveJSON defaultOptions ''Msg
-
-
-
--- a consists of three parts and is called for each received message
---
--- MsgHandlerPre and MsgHandlerPost perform io-actions or update the local state
--- before and after receiving a message
---
--- MsgHandlerPure handles messages purely. It may update the local state
--- and return a list of reply messages and their receivers
-
-type MsgHandlerPre  a = StateT a IO ()
-type MsgHandlerPost a = StateT a IO ()
-type MsgHandlerPure a = Handle -> Msg -> State a [(Handle, Msg)]
-data MsgHandler     a = MsgHandler (MsgHandlerPre a) (MsgHandlerPure a) (MsgHandlerPost a)
-
-runHandler :: Handle -> Msg -> MsgHandler a -> StateT a IO [(Handle, Msg)]
-runHandler handle msg (MsgHandler preHandler pureHandler postHandler) = do
-    preHandler
-    msgs <- StateT (return . runState (pureHandler handle msg))
-    postHandler
-    return msgs
-    
-
 -------------------------------------
 
-
--- receive messages on an established connection and call the
--- handler on them
-getMsgAndHandle :: Show a => MVar a -> Handle -> MsgHandler a -> IO ()
-getMsgAndHandle mEnv handle handler = do
-    result :: Either IOException () <- 
-        try $ whileM_ (not <$> hIsEOF handle) $ do
-            maybeMsg <- getMsg handle
-            case maybeMsg of
-                Just msg -> do
-                    modifyMVarStateT mEnv $ do
-                        msgs <- runHandler handle msg handler
-                        liftIO $ putMsgs msgs
-                Nothing -> do
-                    putStrLn "WARNING: could not decrypt msg"
-    case result of
-        Left _   -> return ()
-        Right () -> return ()
-
-
 -- send messages
-putMsgs :: [(Handle, Msg)] -> IO ()
-putMsgs = mapM_ (\(h,m) -> putMsg h m)
+putMessages :: ToJSON m => [(Handle, m)] -> IO ()
+putMessages = mapM_ (\(h,m) -> putMessage h m)
 
-putMsg :: Handle -> Msg -> IO ()
-putMsg handle = hPutStrLn handle . BLC.unpack . encode
+putMessage :: ToJSON m => Handle -> m-> IO ()
+putMessage handle = hPutStrLn handle . BLC.unpack . encode
 
 -- receive messages
-getMsg :: Handle -> IO (Maybe Msg)
-getMsg handle = hGetLine handle >>= return . decode . BLC.pack
+getMessage :: FromJSON m => Handle -> IO (Maybe m)
+getMessage handle = hGetLine handle >>= return . decode . BLC.pack
 
 
 -- for debug output
-{-putMsg :: Handle -> Msg -> IO ()-}
-{-putMsg handle msg = do-}
+{-putMessage :: Handle -> Message -> IO ()-}
+{-putMessage handle msg = do-}
     {-putStrLn $ "=> outgoing: " ++ show msg-}
-    {-putMsg' handle msg-}
+    {-putMessage' handle msg-}
     
-{-getMsg :: Handle -> IO (Maybe Msg)-}
-{-getMsg handle = do-}
-    {-msg <- getMsg' handle-}
+{-getMessage :: Handle -> IO (Maybe Message)-}
+{-getMessage handle = do-}
+    {-msg <- getMessage' handle-}
     {-putStrLn $ "=> incomming: " ++ show msg-}
     {-return msg-}
 

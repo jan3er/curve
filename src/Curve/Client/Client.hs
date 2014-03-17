@@ -28,6 +28,7 @@ import qualified Graphics.UI.GLFW as GLFW
 import           Graphics.Rendering.OpenGL (($=))
 
 import           Curve.Game.Network
+import           Curve.Game.Message
 import           Curve.Client.Types
 import           Curve.Client.Render.Renderer
 import           Curve.Game.Player
@@ -55,7 +56,7 @@ import           Curve.Game.Timer
 -- establishing a connection --------------------------------------------------
 -------------------------------------------------------------------------------
 
-establishConnection :: String -> MsgHandler Env -> IO (MVar Env)
+establishConnection :: String -> MessageHandler Env -> IO (MVar Env)
 establishConnection playerName msgHandler = do
     --set buffering type maybe?
     {-hSetBuffering stdout LineBuffering-}
@@ -67,17 +68,17 @@ establishConnection playerName msgHandler = do
     connect sock (addrAddress serverAddr)
     hdl <- socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
-    putMsg hdl (CMsgHello playerName)
+    putMessage hdl (CMessageHello playerName)
 
     mEnv <- newMVar =<< initEnv hdl
-    forkMsgHandler mEnv msgHandler
+    forkMessageHandler mEnv msgHandler
     return mEnv
 
 
-forkMsgHandler :: MVar Env -> MsgHandler Env -> IO ()
-forkMsgHandler mEnv handler = do
+forkMessageHandler :: MVar Env -> MessageHandler Env -> IO ()
+forkMessageHandler mEnv handler = do
     handle <- _env_handle <$> readMVar mEnv
-    _<- forkIO $ getMsgAndHandle mEnv handle handler
+    _<- forkIO $ getMessageAndHandle mEnv handle handler
     return ()
 
 
@@ -85,15 +86,20 @@ forkMsgHandler mEnv handler = do
 -- pure message handlers ------------------------------------------------------
 -------------------------------------------------------------------------------
 
-msgHandler :: MsgHandler Env
-msgHandler  = MsgHandler (return ()) handleMsgPure (return ())
+msgHandler :: MessageHandler Env
+msgHandler  = MessageHandler (return ()) handleMessagePure (return ())
 
-handleMsgPure :: MsgHandlerPure Env
-handleMsgPure handle msg = do
-    env <- get
+handleMessagePure :: MessageHandlerPure Env
+handleMessagePure _ msg = do
     case msg of
+
+        SMessageClients clients idx -> do
+            env_clients  .= clients
+            env_playerId .= (clients !! idx)^.cl_playerId
+            return []
+
         -- the world has changed, adapt local env/world to changes
-        {-SMsgWorld clients myNr isRunning -> do-}
+        {-SMessageWorld clients myNr isRunning -> do-}
 
             {-env_nr        .= myNr    -}
             {-env_isRunning .= isRunning-}
@@ -118,23 +124,23 @@ handleMsgPure handle msg = do
             {-return []-}
 
 
-        {-MsgPaddle nr (t,x,y) -> do-}
+        {-MessagePaddle nr (t,x,y) -> do-}
             {-modify $ appendPaddlePos nr (t,x,y)-}
             {-return []-}
 
         
-        {-MsgTime t -> do-}
-            {-env_timer %= CTimer.serverUpdate (MsgTime t)-}
+        {-MessageTime t -> do-}
+            {-env_timer %= CTimer.serverUpdate (MessageTime t)-}
             {-return []-}
         
 
         {--- receive ball update-}
-        {-SMsgBall { _SMsgBall_referenceTime = referenceTime-}
-                 {-, _SMsgBall_position      = position-}
-                 {-, _SMsgBall_direction     = direction-}
-                 {-, _SMsgBall_acceleration  = acceleration-}
-                 {-, _SMsgBall_speed         = speed-}
-                 {-, _SMsgBall_size          = size } -> do-}
+        {-SMessageBall { _SMessageBall_referenceTime = referenceTime-}
+                 {-, _SMessageBall_position      = position-}
+                 {-, _SMessageBall_direction     = direction-}
+                 {-, _SMessageBall_acceleration  = acceleration-}
+                 {-, _SMessageBall_speed         = speed-}
+                 {-, _SMessageBall_size          = size } -> do-}
 
             {-env_world._balls %= (addBall $ Ball-}
                 {-{ __referenceTime = referenceTime-}
@@ -146,12 +152,12 @@ handleMsgPure handle msg = do
             {-return []-}
 
 
-        _ -> error "Error: Client.handleMsg"
+        _ -> error "Error: Client.handleMessage"
             
 
 
 
-appendPaddlePos :: Int -> (NetworkTime, Float, Float) -> Env -> Env
+appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
 appendPaddlePos nr posTuple = 
   let appendToPaddle = _paddle %~ (Paddle.insert posTuple)
   in  env_world._playerMap %~ Map.adjust appendToPaddle nr
@@ -171,15 +177,17 @@ windowResize = do
 -- TODO: return bool if changed instead of actually sending the message?
 mouseInput :: StateT Env IO ()
 mouseInput = do
-    oldPos                     <- use $ env_window.window_mousePos
-    newPos@(GL.Position _x _y) <- liftIO $ GL.get GLFW.mousePos
-    env_window.window_mousePos .= newPos
-    when (newPos /= oldPos) $ do
-        let (x, y) = (fromIntegral _x, fromIntegral _y)
-        env        <- get
-        globalTime <- getTime <$> use env_timer
-        modify $ appendPaddlePos (env^.env_nr) (globalTime, x, y)
-        liftIO $ putMsg (env^.env_handle) (MsgPaddle (env^.env_nr) (globalTime, x, y))
+    --TODOb
+    {-oldPos                     <- use $ env_window.window_mousePos-}
+    {-newPos@(GL.Position _x _y) <- liftIO $ GL.get GLFW.mousePos-}
+    {-env_window.window_mousePos .= newPos-}
+    {-when (newPos /= oldPos) $ do-}
+        {-let (x, y) = (fromIntegral _x, fromIntegral _y)-}
+        {-env        <- get-}
+        {-globalTime <- getTime <$> use env_timer-}
+        {-modify $ appendPaddlePos (env^.env_nr) (globalTime, x, y)-}
+        {-liftIO $ putMessage (env^.env_handle) (MessagePaddle (env^.env_nr) (globalTime, x, y))-}
+    return ()
 
 
 -- keep timer up to date and in sync

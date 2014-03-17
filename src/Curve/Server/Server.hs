@@ -32,17 +32,18 @@ import Curve.Game.Ball as Ball
 
 import Curve.Game.Utils
 import Curve.Game.Network
+import Curve.Game.Message
 import Curve.Game.Timer
 
 -------------------------------------------------------------------------------
 -- IO message handlers --------------------------------------------------------
 -------------------------------------------------------------------------------
 
-handleMsgPre :: MsgHandlerPre Env
-handleMsgPre = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
+handleMessagePre :: MessageHandlerPre Env
+handleMessagePre = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
 
-handleMsgPost :: MsgHandlerPost Env
-handleMsgPost = return ()
+handleMessagePost :: MessageHandlerPost Env
+handleMessagePost = return ()
 
 -------------------------------------------------------------------------------
 -- pure message handler -------------------------------------------------------
@@ -55,56 +56,56 @@ handleToClient handle list =
     in (head $ filter f list)^.clh_client --TODO
 
 -- this is called for every incomming message
-handleMsgPure :: MsgHandlerPure Env
-handleMsgPure handle msg = do
+handleMessagePure :: MessageHandlerPure Env
+handleMessagePure handle msg = do
     case msg of
 
-        MsgPaddle _ (t, x, y) -> do 
+        MessagePaddle _ (t, x, y) -> do 
             {-getPaddleBroadcast nr (t,x,y) <$> get-}
             return []
 
-        CMsgHello nick -> do
+        CMessageHello nick -> do
             error "asdasdfasdf asdfasdf. not to be called"
             return []
 
-        MsgTime _ -> do 
-            msgOut <- MsgTime . getTime <$> use env_timer
+        MessageTime _ -> do 
+            msgOut <- MessageTime . getTime <$> use env_timer
             return [(handle, msgOut)]
 
-        _ -> error "Server.handleMsg: no handler for this message"
+        _ -> error "Server.handleMessage: no handler for this message"
 
 
 {--- TODO: put this somewhere else-}
-{-getWorldBroadcast :: Env -> [(Handle,Msg)]-}
+{-getWorldBroadcast :: Env -> [(Handle,Message)]-}
 {-getWorldBroadcast env = -}
     {-let nrs           = fst <$> (Map.toList $ env^.env_world^._playerMap)-}
 
         {-buildTuple :: Int -> (Int, Maybe Client)-}
         {-buildTuple nr = (nr, view scl_client <$> Map.lookup nr (env^.env_clientMap))-}
 
-        {-buildMsg :: Int -> Msg-}
-        {-buildMsg nr   = SMsgWorld (buildTuple <$> nrs) nr (env^.env_isRunning)-}
+        {-buildMessage :: Int -> Message-}
+        {-buildMessage nr   = SMessageWorld (buildTuple <$> nrs) nr (env^.env_isRunning)-}
     
     {-in-}
-    {-(\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), buildMsg nr ))-}
+    {-(\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), buildMessage nr ))-}
     {-<$> (connectedClientsNr (env^.env_clientMap))-}
     
 
 
 {--- TODO: put this somewhere else-}
-{-getPaddleBroadcast :: Int -> (NetworkTime, Float, Float) -> Env -> [(Handle,Msg)]-}
+{-getPaddleBroadcast :: Int -> (NominalDiffTime, Float, Float) -> Env -> [(Handle,Message)]-}
 {-getPaddleBroadcast myNr tup env = -}
-    {-let msg            = MsgPaddle myNr tup-}
+    {-let msg            = MessagePaddle myNr tup-}
         {-handleFromNr n = view scl_handle $ clientFromNr n (env^.env_clientMap)-}
         {-nrs            = filter (/= myNr) $ connectedClientsNr (env^.env_clientMap)-}
     {-in zip (handleFromNr <$> nrs) (repeat msg)-}
 
 {--- broadcast the last ball in the ball list-}
-{-getBallBroadcast :: Env -> [(Handle,Msg)]-}
+{-getBallBroadcast :: Env -> [(Handle,Message)]-}
 {-getBallBroadcast env =-}
     {---TODO take created balls directly-}
     {-let ball = last $ env^.env_world^._balls-}
-        {-msg = SMsgBall -}
+        {-msg = SMessageBall -}
                 {-(ball^.Ball._referenceTime)-}
                 {-(M.mkTuple3 $ ball^._position)-}
                 {-(M.mkTuple3 $ ball^._direction)-}
@@ -120,25 +121,25 @@ handleMsgPure handle msg = do
 -- functions with env ---------------------------------------------------------
 -------------------------------------------------------------------------------
 
-getSMsgClients :: Env -> [(Handle, Msg)]
-getSMsgClients env =
+getSMessageClients :: Env -> [(Handle, Message)]
+getSMessageClients env =
     let clientHandles = env^.env_clients
-        makeMsg clientHandle idx = 
+        makeMessage clientHandle idx = 
             ( clientHandle^.clh_handle
-            , SMsgClients 
-              { _SMsgClients_index   = idx 
-              , _SMsgClients_clients = ((view clh_client) <$> clientHandles)  }
+            , SMessageClients 
+              { _SMessageClients_index   = idx 
+              , _SMessageClients_clients = ((view clh_client) <$> clientHandles)  }
             )
-    in zipWith makeMsg clientHandles [0..]
+    in zipWith makeMessage clientHandles [0..]
 
 
 addClient :: String -> Handle -> State Env ()
 addClient nick handle = do
     let client       = Client
                        { _cl_nick     = nick
-                       , _cl_lastMsg  = 0
+                       , _cl_lastMessage  = 0
                        , _cl_isAlive  = True
-                       , _cl_playerId = 42 } --TODOb
+                       , _cl_playerId = (-1) } --TODOb
     let clientHandle = ClientHandle
                        { _clh_handle = handle
                        , _clh_client = client }
@@ -176,7 +177,7 @@ setupConnection =
 
 
 -- listen on listenSocket and call forkClient for every incomming connection
-listenForClients :: MVar Env -> Socket -> MsgHandler Env -> IO ()
+listenForClients :: MVar Env -> Socket -> MessageHandler Env -> IO ()
 listenForClients mEnv listenSock handler = forever $ do
     (sock, _) <- accept listenSock
     handle <- socketToHandle sock ReadWriteMode 
@@ -190,37 +191,38 @@ listenForClients mEnv listenSock handler = forever $ do
         putStrLn "client disconnected"
         
 
--- if game is running close socket and return,
--- otherwise add client to game and fork handler
--- when the client disconnects the playermap entry is removed or killed, depending on isRunning
-acceptClient :: MVar Env -> Handle -> MsgHandler Env -> ErrorT String IO ()
+-- add a client to the client list and call the message handler
+-- fails if the game is already running
+acceptClient :: MVar Env -> Handle -> MessageHandler Env -> ErrorT String IO ()
 acceptClient mEnv handle handler = do
 
-    -- the first message is expected to be of kind CMsgHello
-    msg  <- liftIO $ getMsg handle
+    -- the first message is expected to be of kind CMessageHello
+    msg  <- liftIO $ getMessage handle
     nick <- case msg of
-        Just (CMsgHello n) -> return n
-        _                  -> throwError "first message was no CMsgHello"
+        Just (CMessageHello n) -> return n
+        _                  -> throwError "first message was no CMessageHello"
 
     -- the game is expected not to be running when a client joins
-    msgs <- modifyMVarErrorT mEnv $ do
+    msgsJoin <- modifyMVarErrorT mEnv $ do
         isRunning <- use env_isRunning
         if isRunning
             then do 
                 throwError "trying to add client while game is already running"
             else do 
                 lift (addClient nick handle)
-                getSMsgClients <$> get
+                getSMessageClients <$> get
 
     -- broadcast the changed client list
-    liftIO $ putMsgs msgs
+    liftIO $ putMessages msgsJoin
 
     -- let the handler take over until the connection dies
-    liftIO $ getMsgAndHandle mEnv handle handler
+    liftIO $ getMessageAndHandle mEnv handle handler
 
     -- remove the client afterwards
-    liftIO $ modifyMVarState mEnv (removeClient handle)
-    liftIO $ hClose handle
+    msgsLeave <- liftIO $ modifyMVarState mEnv $ do
+        removeClient handle
+        getSMessageClients <$> get
+    liftIO $ putMessages msgsLeave
 
     
 -------------------------------------------------------------------------------
@@ -231,13 +233,13 @@ acceptClient mEnv handle handler = do
 simpleKeyboardHandler :: MVar Env -> IO ()
 simpleKeyboardHandler mEnv = forever $ do
     line <- getLine
-    modifyMVar_ mEnv $ execStateT $ case line of
+    modifyMVarStateT mEnv $ case line of
         "toggle" -> do
             liftIO $ putStrLn "toggleIsRunning"
             env_isRunning %= not
             --TODOa
             {-list <- getWorldBroadcast <$> get-}
-            {-liftIO $ putMsgs list -}
+            {-liftIO $ putMessages list -}
         "env" -> do
             liftIO . putStrLn =<<  show <$> get
         _ -> do
@@ -249,7 +251,8 @@ start :: IO ()
 start = withSocketsDo $ do
     putStrLn "startServer"
     (listenSock, mEnv) <- setupConnection
-    _<- forkIO $ listenForClients mEnv listenSock (MsgHandler handleMsgPre handleMsgPure handleMsgPost)
+    _<- forkIO $ listenForClients mEnv listenSock 
+                 (MessageHandler handleMessagePre handleMessagePure handleMessagePost)
     _<- forkIO $ simpleKeyboardHandler mEnv
 
 
@@ -296,7 +299,7 @@ forkBallHandler mEnv = forkIO $ forever $ do
     modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))
 
     --TODOa
-    {-putMsgs . getBallBroadcast =<< readMVar mEnv-}
+    {-putMessages . getBallBroadcast =<< readMVar mEnv-}
 
     threadDelay $ floor $ 1000000 * (intersectTime - currentTime)
     putStrLn $ "bounce at wall " ++ (show wallIdx)

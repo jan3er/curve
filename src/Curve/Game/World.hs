@@ -115,7 +115,16 @@ foo world =
         join/leave messages
 
     when game is running
-        client list is immutable
+        client list is immutable //WHY?
+
+    ------
+    
+
+    each round is started with a message containing:
+        - a start ball
+        
+    
+    each round is finnished with a message containing:
 
    
 

@@ -27,4 +27,7 @@ modifyMVarErrorT :: MVar s -> ErrorT e (State s) a -> ErrorT e IO a
 modifyMVarErrorT mvar = ErrorT . modifyMVarState mvar . runErrorT
 
 liftMaybe :: (Monad m) => Maybe a -> MaybeT m a
-liftMaybe x = MaybeT $ return x
+liftMaybe = MaybeT . return
+
+liftState :: (Monad m) => State s a -> StateT s m a
+liftState x = StateT (return . runState x)

@@ -8,6 +8,7 @@ import Safe
 import Data.Maybe
 import Data.List
 import Data.Time
+import Data.Aeson.TH
 {-import Debug.Trace-}
 import Control.Lens
 import Control.Applicative
@@ -17,7 +18,11 @@ import Curve.Game.Math hiding (map, maximum, zipWith)
 
 import Curve.Game.Wall as Wall
 
+import Curve.Game.Network
+
 -----------------------------------
+
+
 
 data Ball = Ball
     { __referenceTime :: NominalDiffTime
@@ -28,6 +33,7 @@ data Ball = Ball
     , __size          :: Float
     } deriving Show
 makeLenses ''Ball
+deriveJSON defaultOptions ''Ball
 
 -----------------------------------
 
