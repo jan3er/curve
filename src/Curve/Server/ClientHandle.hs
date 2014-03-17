@@ -1,7 +1,7 @@
 {-# OPTIONS -Wall #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Curve.Server.ClientMap where 
+module Curve.Server.ClientHandle where 
 
 import           Control.Lens
 import qualified Data.Map as Map

@@ -5,19 +5,9 @@ module Curve.Server.Env where
 
 import Control.Lens
 
-import qualified Curve.Game.World as World
-import Curve.Game.World (World)
-
-{-import qualified Curve.Game.Ball as Ball-}
-{-import Curve.Game.Ball (Ball)-}
-
-{-import qualified Curve.Game.Wall as Wall-}
-{-import Curve.Game.Wall (Wall)-}
-
-import qualified Curve.Server.Timer as Timer
-import Curve.Server.Timer (STimer)
-
-import Curve.Server.ClientMap
+import Curve.Game.World
+import Curve.Server.Timer
+import Curve.Server.ClientHandle
 {-import Curve.Game.Player-}
 
 ----------------------------------------
@@ -33,9 +23,9 @@ makeLenses ''Env
 
 initEnv :: IO Env
 initEnv = do
-    timer <- Timer.new
+    timer <- initTimer
     return Env 
         { _env_clients   = []
-        , _env_world     = World.new
+        , _env_world     = initEmptyWorld
         , _env_isRunning = False
         , _env_timer     = timer }

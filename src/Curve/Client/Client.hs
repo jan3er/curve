@@ -4,53 +4,49 @@
 
 module Curve.Client.Client where
 
-import           System.Environment (getProgName)
-import           System.IO
-import           Control.Concurrent
-import           Control.Applicative
-import           Control.Monad
-import           Control.Monad.State
-import           Control.Monad.Trans.Maybe
-import           Control.Lens
+import System.Environment (getProgName)
+import System.IO
+import Control.Concurrent
+import Control.Applicative
+import Control.Monad
+import Control.Monad.State
+import Control.Monad.Trans.Maybe
+import Control.Lens
 
-{-import           Debug.Trace-}
+{-import Debug.Trace-}
 
-import           Safe
-import           Data.Time
-{-import           Data.List-}
-import           Data.Maybe
+import Safe
+import Data.Time
+{-import Data.List-}
+import Data.Maybe
 import qualified Data.Map.Lazy as Map
 
-import           Network.Socket
+import Network.Socket
 
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
-import           Graphics.Rendering.OpenGL (($=))
+import Graphics.Rendering.OpenGL (($=))
 
-import           Curve.Game.Network
-import           Curve.Game.Message
-import           Curve.Client.Types
-import           Curve.Client.Render.Renderer
-import           Curve.Game.Player
-import           Curve.Game.Ball
-{-import           Curve.Game.Wall-}
+import Curve.Game.Network
+import Curve.Game.Message
+import Curve.Client.Types
+import Curve.Client.Render.Renderer
+import Curve.Game.Player
+import Curve.Game.Ball
+{-import Curve.Game.Wall-}
 
 
 
 import qualified Curve.Game.Math as M
-{-import           Curve.Game.Math (Vec3)-}
+{-import Curve.Game.Math (Vec3)-}
 
 import qualified Curve.Client.Timer as CTimer
-{-import           Curve.Game.Ball    as Ball -}
-import           Curve.Game.Player  as Player
-import           Curve.Game.Paddle  as Paddle
-import           Curve.Game.Wall    as Wall
-import           Curve.Game.World   as World
-import           Curve.Game.Timer
-
-
--- run state in stateT monad
-{-StateT (return . runState foo)-}
+{-import Curve.Game.Ball   as Ball -}
+import Curve.Game.Player as Player
+import Curve.Game.Paddle as Paddle
+import Curve.Game.Wall   as Wall
+import Curve.Game.World  as World
+import Curve.Game.Timer
 
 -------------------------------------------------------------------------------
 -- establishing a connection --------------------------------------------------
@@ -157,10 +153,10 @@ handleMessagePure _ msg = do
 
 
 
-appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env
-appendPaddlePos nr posTuple = 
-  let appendToPaddle = _paddle %~ (Paddle.insert posTuple)
-  in  env_world._playerMap %~ Map.adjust appendToPaddle nr
+{-appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env-}
+{-appendPaddlePos nr posTuple = -}
+  {-let appendToPaddle = _paddle %~ (Paddle.insert posTuple)-}
+  {-in  env_world._playerMap %~ Map.adjust appendToPaddle nr-}
 
 -------------------------------------------------------------------------------
 -- MOST CODE ------------------------------------------------------------------
@@ -215,8 +211,10 @@ start = do
 
    
     modifyMVar_ mEnv $ execStateT $ do
-        let walls = (fst $ Wall.initArena 5 1 10)
-        env_world._extraWalls .= walls
+        {-let walls = (fst $ Wall.initArena 5 1 10)-}
+        {-env_world._extraWalls .= walls-}
+        --TODO
+        env_world .= initWorld 5
 
  
 
@@ -240,7 +238,7 @@ stepEnv = do
     updateTimer
 
     -- delete all but the last three paddle positions
-    env_world._playerMap.mapped._paddle  %= Paddle.clamp
+    {-env_world._playerMap.mapped._paddle  %= Paddle.clamp-}
 
     -- get the latest ball
     timer <- use env_timer

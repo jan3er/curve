@@ -6,6 +6,7 @@ module Curve.Game.World where
 import Control.Lens
 {-import Control.Applicative-}
 import Control.Monad.State
+import Control.Applicative
 import Data.Time
 {-import Data.Tuple-}
 import Data.Maybe
@@ -23,31 +24,45 @@ import Curve.Game.Timer
 
 data GameStatus = Running
                 | NotRunning
-                | PlayerLost Int 
+                | IDonwKnow
     deriving Show
 
 data World = World
     { __currentTime  :: NominalDiffTime 
     , __balls        :: [Ball]          -- ^ the current ball is placed first
     , __extraWalls   :: [Wall]          -- ^ all non-player walls
-    , __playerMap    :: Map Int Player
+    , __players      :: [Player]
     , __gameStatus   :: GameStatus
     } deriving Show
 makeLenses ''World
 
----------------------------------------
+-------------------------------------------------------------------------------
+-- initialization -------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 -- create a new empty world
-new :: World
-new = World
+initEmptyWorld :: World
+initEmptyWorld = World
     { __currentTime  = 0
-    , __balls        = [newBall]
+    , __balls        = []
     , __extraWalls   = []
-    , __playerMap    = Map.empty
-    , __gameStatus   = NotRunning
-    }
+    , __players      = []
+    , __gameStatus   = IDonwKnow }
 
----------------------------------------
+-- create a new empty world
+initWorld :: Int -> World
+initWorld noPlayers =
+    let (playerWalls, extraWalls) = initArena noPlayers
+    in World
+    { __currentTime  = 0
+    , __balls        = []
+    , __extraWalls   = extraWalls
+    , __players      = initPlayer <$> playerWalls
+    , __gameStatus   = IDonwKnow }
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 
 -- to be called imedeately before stuff
@@ -65,20 +80,14 @@ update timer = execState $ do
         return $ activeBall : (dropWhile isActive balls)
 
 
-addBall :: Ball -> [Ball] -> [Ball]
-addBall ball balls = balls ++ [ball]
-
-currentBall :: [Ball] -> Ball
-currentBall = head  
-
 ----------------------------------------
 
 nextImpact :: World -> (NominalDiffTime, (Wall, Maybe Int))
 nextImpact world =
-    let playerWalls  = map (\(nr,wall) -> (wall,(wall,Just nr)))
-                     . Map.toList
-                     . Map.map (view _wall)
-                     $ (world^._playerMap) 
+    let playerWalls  = zipWith (\nr wall -> (wall,(wall,Just nr))) [0..]
+                     . map (view _wall)
+                     $ (world^._players)
+
         extraWalls   = map (\wall -> (wall,(wall,Nothing)))
                        (world^._extraWalls)
     in intersectList 

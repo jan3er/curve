@@ -38,8 +38,8 @@ queryInterval = 2
 ----------------------------------------
 
 -- get a brand new timer
-init :: Handle -> IO CTimer
-init handle = do
+initTimer :: Handle -> IO CTimer
+initTimer handle = do
     putMessage handle (MessageTime 0)
     t <- getCurrentTime
     return $ CTimer 

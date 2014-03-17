@@ -9,20 +9,17 @@ import Data.Maybe
 import Data.List
 import Data.Time
 import Data.Aeson.TH
-{-import Debug.Trace-}
 import Control.Lens
 import Control.Applicative
 
 import qualified Curve.Game.Math as M
-import Curve.Game.Math hiding (map, maximum, zipWith)
+import Curve.Game.Math hiding (map, maximum, zipWith, head)
 
 import Curve.Game.Wall as Wall
 
-import Curve.Game.Network
+import Curve.Game.Network()
 
 -----------------------------------
-
-
 
 data Ball = Ball
     { __referenceTime :: NominalDiffTime
@@ -45,8 +42,21 @@ newBall = Ball
     (M.mkVec3 0 20 0)
     20
     0.3
+
+-------------------------------------------------------------------------------
+-- interface for ball list ----------------------------------------------------
+-------------------------------------------------------------------------------
+
+
+addBall :: Ball -> [Ball] -> [Ball]
+addBall ball balls = balls ++ [ball]
+
+currentBall :: [Ball] -> Ball
+currentBall = head  
     
------------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 --only valid for times greater than difftime
 positionAtTime :: NominalDiffTime -> Ball -> Vec3 Float
@@ -91,6 +101,10 @@ intersectList ball walls =
         [] -> error "Curve.Game.Wall intersectionList: the ball touched no wall!"
         xs -> minimumBy (\a b -> compare (a^._1) (b^._1)) xs
 
+
+-------------------------------------------------------------------------------
+-- intersection with single walls ---------------------------------------------
+-------------------------------------------------------------------------------
 
 -- get the moment of intersection with this wall 
 momentOfIntersection :: Ball -> Wall -> Maybe NominalDiffTime

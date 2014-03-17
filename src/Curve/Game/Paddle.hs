@@ -5,8 +5,10 @@ module Curve.Game.Paddle where
 
 import qualified Data.List as L
 import Data.List
-import           Data.Time
-import           Control.Lens
+import Data.Time
+import Control.Lens
+
+-------------------------
 
 type Entry = (NominalDiffTime, Float, Float)
 
@@ -14,6 +16,12 @@ data Paddle = Paddle {
       __positions :: [Entry]
     } deriving Show
 makeLenses ''Paddle
+
+-------------------------
+
+initPaddle :: Paddle
+initPaddle = Paddle 
+    { __positions = [] }
 
 clamp :: Paddle -> Paddle
 clamp = _positions %~ L.take 3

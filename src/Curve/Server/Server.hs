@@ -22,7 +22,7 @@ import Control.Applicative
 import Network.Socket
 
 import Curve.Server.Env
-import Curve.Server.ClientMap
+import Curve.Server.ClientHandle
 import Curve.Server.Timer as Timer
 {-import Curve.Game.Player as Player-}
 import Curve.Game.Wall as Wall
@@ -57,22 +57,25 @@ handleToClient handle list =
 
 -- this is called for every incomming message
 handleMessagePure :: MessageHandlerPure Env
-handleMessagePure handle msg = do
-    case msg of
+handleMessagePure handle message = do
+    case message of
 
-        MessagePaddle _ (t, x, y) -> do 
-            {-getPaddleBroadcast nr (t,x,y) <$> get-}
-            return []
+        {-MessagePaddle _ (t, x, y) -> do -}
+            {-[>getPaddleBroadcast nr (t,x,y) <$> get<]-}
+            {-return []-}
 
-        CMessageHello nick -> do
-            error "asdasdfasdf asdfasdf. not to be called"
-            return []
+        {-CMessageHello nick -> do-}
+            {-error "asdasdfasdf asdfasdf. not to be called"-}
+            {-return []-}
 
-        MessageTime _ -> do 
-            msgOut <- MessageTime . getTime <$> use env_timer
+        -- help the client sync its time
+        MessageTime _ -> do
+            msgOut <- (MessageTime . getTime) <$> use env_timer
             return [(handle, msgOut)]
 
-        _ -> error "Server.handleMessage: no handler for this message"
+        _ -> do 
+            error $ "Server.handleMessagePure: no handler for this message: \n" ++ (show message)
+
 
 
 {--- TODO: put this somewhere else-}
@@ -148,6 +151,7 @@ addClient nick handle = do
 removeClient :: Handle -> State Env ()
 removeClient handle = do
     env_clients %= filter ((/=) handle . view clh_handle)
+
 
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
@@ -229,6 +233,27 @@ acceptClient mEnv handle handler = do
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
+
+startRound :: MVar Env -> IO ()
+startRound mEnv = do
+
+    message <- withMVar mEnv $ evalStateT $ do
+        number <- length <$> (use $ env_world . _players)
+        ball   <- head   <$> (use $ env_world . _balls)
+        return SMessageRoundStart
+            { _SMessageRoundStart_numberOfPlayers = number
+            , _SMessageRoundStart_startBall       = ball }
+
+    return ()
+
+
+{-endRound-}
+
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
 -- this is mostly for debug purposes
 simpleKeyboardHandler :: MVar Env -> IO ()
 simpleKeyboardHandler mEnv = forever $ do
@@ -258,15 +283,17 @@ start = withSocketsDo $ do
 
 
     modifyMVar_ mEnv $ execStateT $ do
-        let walls = (fst $ Wall.initArena 5 1 10)
-        env_world._extraWalls .= walls
+        {-let walls = (fst $ Wall.initArena 5 1 10)-}
+        {-env_world._extraWalls .= walls-}
+        env_world .= initWorld 5
 
-    _<- forkBallHandler mEnv
+    {-_<- forkBallHandler mEnv-}
 
     -- run main loop
     _<- forever $ do 
-            threadDelay (2 * 1000000)
-            {-modifyMVar_ mEnv $ execStateT stepEnv-}
+        threadDelay (2 * 1000000)
+        return ()
+        {-modifyMVar_ mEnv $ execStateT stepEnv-}
 
 
     putStrLn "reached the end"

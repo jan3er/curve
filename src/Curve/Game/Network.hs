@@ -41,17 +41,3 @@ putMessage handle = hPutStrLn handle . BLC.unpack . encode
 -- receive messages
 getMessage :: FromJSON m => Handle -> IO (Maybe m)
 getMessage handle = hGetLine handle >>= return . decode . BLC.pack
-
-
--- for debug output
-{-putMessage :: Handle -> Message -> IO ()-}
-{-putMessage handle msg = do-}
-    {-putStrLn $ "=> outgoing: " ++ show msg-}
-    {-putMessage' handle msg-}
-    
-{-getMessage :: Handle -> IO (Maybe Message)-}
-{-getMessage handle = do-}
-    {-msg <- getMessage' handle-}
-    {-putStrLn $ "=> incomming: " ++ show msg-}
-    {-return msg-}
-

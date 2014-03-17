@@ -29,41 +29,53 @@ data Wall = Wall
     } deriving Show
 makeLenses ''Wall
 
------------------------------------
 
+-------------------------------------------------------------------------------
+-- arena ----------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
-{-TODO: constructor which asserts a walls propperties-}
+initArena :: Int -> ([Wall],[Wall])
+initArena noPlayers = initArena' 5 1 noPlayers
 
--- first: player walls
--- second: non-player walls
-initArena :: Float -> Float -> Int -> ([Wall],[Wall])
-initArena radius height noPlayers =
+-- returns (player walls, extra walls)
+initArena' :: Float -> Float -> Int -> ([Wall],[Wall])
+initArena' radius height noPlayers =
     let 
         -- the angle change with each step
-        angle  :: Float = 2*pi / (fromIntegral noPlayers)
+        angle :: Float = 2*pi / (fromIntegral noPlayers)
         -- tan alpha/2 = width/radius
-        width  :: Float = radius * (tan (angle/2))
+        width :: Float = radius * (tan (angle/2))
         -- the center of the wall at step i
-        centerAt i  =  
-            M.mkVec3 
-                (sin (fromIntegral i*angle) * radius)
-                (cos (fromIntegral i*angle) * radius) 
-                0
+        centerAt i  =  M.mkVec3 
+            (sin (fromIntegral i*angle) * radius)
+            (cos (fromIntegral i*angle) * radius) 
+            0
     in
     -- one wall for each player
-    ((\i ->
-        Wall
-            (M.normalize $ centerAt i M.*. (-1))
-            (M.normalize $ M.mkVec3 0 0 1)
-            (centerAt i)
-            (width, height)
+    ((\i -> initWall
+        (centerAt i M.*. (-1))
+        (M.mkVec3 0 0 1)
+        (centerAt i)
+        (width, height)
     ) <$> [1..noPlayers]
     ,        
     -- top and bottom wall
-    [ Wall (M.mkVec3 0 0 1) (M.mkVec3 (-1) 0 0) (M.mkVec3 0 0 ( height/2)) (radius, radius)
-    , Wall (M.mkVec3 0 0 1) (M.mkVec3    1 0 0) (M.mkVec3 0 0 (-height/2)) (radius, radius)
+    [ initWall (M.mkVec3 0 0 1) (M.mkVec3 (-1) 0 0) (M.mkVec3 0 0 ( height/2)) (radius, radius)
+    , initWall (M.mkVec3 0 0 1) (M.mkVec3    1 0 0) (M.mkVec3 0 0 (-height/2)) (radius, radius)
     ])
     
+
+-------------------------------------------------------------------------------
+-- single wall ----------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+-- create a wall by normalizing its attributes
+initWall :: Vec3 Float -> Vec3 Float -> Vec3 Float -> (Float, Float) -> Wall
+initWall normal updir center dimensions = Wall
+    { __normal        = M.normalize normal
+    , __updir         = M.normalize updir
+    , __center        = M.normalize center
+    , __dimensions    = dimensions } 
 
 
 -- returns true iff the orthogonal projection of ip into the wall's plane is within the wall's dimensions
@@ -80,11 +92,11 @@ isInRectangle wall ip =
 
 
 
--- project the point a shortly before the wall
+-- project the point shortly before the wall
 projectBeforeWall :: Wall -> Vec3 Float -> Float -> Vec3 Float
 projectBeforeWall wall pos size =
     let 
-        offset = (wall^._center) +. ((wall^._normal) *. size)
+        offset      = (wall^._center) +. ((wall^._normal) *. size)
         relativePos = pos -. offset 
-        projection = relativePos -. ((wall^._normal) *. ((wall^._normal) `dot` relativePos))
+        projection  = relativePos -. ((wall^._normal) *. ((wall^._normal) `dot` relativePos))
     in projection +. offset +. ((wall^._normal) * 0.1)

@@ -61,18 +61,26 @@ runHandler handle msg (MessageHandler preHandler pureHandler postHandler) = do
 -- messages without a prefix may be sent in both directions
 
 data Message = 
+    
+    -- synchronize clients to the server's clock
+      MessageTime        { _MessageTime_time                   :: NominalDiffTime }
         
     -- sent to server when establishing the connection
-      CMessageHello   { _CMessageHello_nick      :: String }
+    | CMessageHello      { _CMessageHello_nick                 :: String }
     
     -- broadcasted everytime a player connects/disconnects etc.
-    | SMessageClients { _SMessageClients_clients   :: [Client] -- all clients in the game
-                      , _SMessageClients_index     :: Int }    -- receivers client is at 
-                                                               -- this index of the list
+    | SMessageClients    { _SMessageClients_clients            :: [Client] -- all clients in the game
+                         , _SMessageClients_index              :: Int }    -- receivers client is at this index of the list
+
+    | SMessageRoundStart { _SMessageRoundStart_numberOfPlayers :: Int
+                         , _SMessageRoundStart_startBall       :: Ball }
+
+    | SMessageRoundEnd
 
     -- broadcasts the state of the ball everytime it bounces of a wall 
-    | SMessageBall    { _SMessageBall_ball :: Ball }
-    ---------
+    | SMessageBall    { _SMessageBall_ball         :: Ball }
+
+    -----------------------
 
     -- broadcasted everytime a player connects/disconnects etc.
     {-| SMessageWorld     { _SMessageWorld_clients   :: [(Int, Maybe Client)]-}
@@ -90,11 +98,9 @@ data Message =
 
     -- sent by client and server distribute each paddle's 
     -- current position through the network
-    | MessagePaddle   { _MessagePaddle_nr        :: Int
-                      , _MessagePaddle_pos       :: (NominalDiffTime, Float, Float) }
-
-    -- synchronize clients to the server's clock
-    | MessageTime     { _MessageTime_time        :: NominalDiffTime }
+    {-| MessagePaddle   { _MessagePaddle_nr        :: Int-}
+                      {-, _MessagePaddle_pos       :: (NominalDiffTime, Float, Float) }-}
+    deriving (Show)
 
     {-| MessageUnknown -}
 makeLenses ''Message

@@ -17,11 +17,8 @@ import           Curve.Game.Network
 {-import qualified Curve.Game.Wall as Wall-}
 {-import           Curve.Game.Wall (Wall)-}
 
-import qualified Curve.Game.World as World
-import           Curve.Game.World (World)
-
-import qualified Curve.Client.Timer as Timer
-import           Curve.Client.Timer (CTimer)
+import Curve.Game.World
+import Curve.Client.Timer
 
 ----------------------------------------
 
@@ -48,11 +45,11 @@ makeLenses ''Env
 
 initEnv :: Handle -> IO Env
 initEnv handle = do
-    timer <- Timer.init handle
+    timer <- initTimer handle
     let window = Window (GL.Position 0 0) (GL.Size 10 10)
     return $ Env 
         { _env_clients   = []
-        , _env_world     = World.new
+        , _env_world     = initEmptyWorld
         , _env_handle    = handle
         , _env_playerId  = (-1)
         , _env_isRunning = False
