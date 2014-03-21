@@ -135,7 +135,26 @@ render res env =
     --------------------------------
     
     GL.currentProgram $= Just (s^.basic_program)
-    let ballPos = Ball.positionAtTime (getTime $ env^.env_timer) (currentBall $ env^.env_world^._balls)
+
+    {-let ballPos = if (null $ env^.env_world^._balls)-}
+        {-then (0 M.:. 0 M.:. 0 M.:. ())-}
+        {-else Ball.positionAtTime (getTime $ env^.env_timer) (currentBall $ env^.env_world^._balls)-}
+
+    let ballPosA :: Vec3 Float = Ball.positionAtTime (getTime $ env^.env_timer) (currentBall $ env^.env_world^._balls)
+    let ballPosB :: Vec3 Float = (3 M.:. 2 M.:. 0 M.:. ())
+    let ballPos = if (null $ env^.env_world^._balls) then ballPosB else ballPosA
+
+    if (null $ env^.env_world^._balls)
+        then do 
+            return ()
+        else do
+            return ()
+            {-putStrLn $ show $ (currentBall $ env^.env_world^._balls)^._referenceTime-}
+            {-putStrLn $ show ballPosA-}
+
+    {-putStrLn $ "currentTime: " ++ show (getTime $ env^.env_timer)-}
+    
+
     GLU.uniformMat (s^.basic_uProjectionMatrix) $= (matToGLLists.getProjectionMatrix) (env^.env_window^.window_size)
     GLU.uniformMat (s^.basic_uModelMatrix)      $= (matToGLLists.M.translation)       ballPos
     GLU.uniformMat (s^.basic_uViewMatrix)       $= (matToGLLists.M.translation)       (M.mkVec3 0 0 (-20))
@@ -144,10 +163,14 @@ render res env =
 
 
     -- draw arena
+    {-sequence_ $ -}
+        {-(\wall -> do-}
+            {-fooDrawMyVao s (wallTransformationMatrix wall) (res^.res_vaoWall)-}
+        {-) <$> (env^.env_world^._extraWalls)-}
     sequence_ $ 
-        (\wall -> do
-            fooDrawMyVao s (wallTransformationMatrix wall) (res^.res_vaoWall)
-        ) <$> (env^.env_world^._extraWalls)
+        (\wall -> do fooDrawMyVao s (wallTransformationMatrix wall) (res^.res_vaoWall)) 
+        <$> view _wall
+        <$> (env^.env_world^._players)
         
 
 

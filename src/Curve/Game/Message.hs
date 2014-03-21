@@ -19,9 +19,12 @@ import Data.Aeson.TH
 import Curve.Game.Network
 import Curve.Game.Utils
 import Curve.Game.Ball
+import Curve.Game.World
 
 
--------------------------------------
+-------------------------------------------------------------------------------
+-- MessageHandlers ------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 
 -- a consists of three parts and is called for each received message
@@ -48,7 +51,32 @@ runHandler handle msg (MessageHandler preHandler pureHandler postHandler) = do
     return msgs
     
 
----------------------------------------------
+
+-- receive messages on an established connection and call the
+-- handler on them
+-- TODO: maybe wrap into ErrorT monad
+getMessageAndHandle :: Show a => MVar a -> Handle -> MessageHandler a -> IO ()
+getMessageAndHandle mEnv handle handler = do
+    result :: Either IOException () <-
+        try $ whileM_ (not <$> hIsEOF handle) $ do
+            maybeMessage <- getMessage handle
+            putStrLn $ "RECEIVE: " ++ show maybeMessage
+            case maybeMessage of
+                Just msg -> do
+                    modifyMVarStateT mEnv $ do
+                        msgs <- runHandler handle msg handler
+                        liftIO $ putMessages msgs
+                Nothing -> do
+                    putStrLn "WARNING: could not decrypt msg"
+    case result of
+        Left _   -> return ()
+        Right () -> return ()
+
+
+
+-------------------------------------------------------------------------------
+-- the Message type -----------------------------------------------------------
+-------------------------------------------------------------------------------
 
 
 -- Message is the central datatype for network communication
@@ -59,6 +87,8 @@ runHandler handle msg (MessageHandler preHandler pureHandler postHandler) = do
 -- messages prefixed with a C are intended to be send from client to server
 -- and messages prefixed with a S from server to client
 -- messages without a prefix may be sent in both directions
+--
+-- TODO: Maybe create a Header type containing metadata sent with every message
 
 data Message = 
     
@@ -72,13 +102,21 @@ data Message =
     | SMessageClients    { _SMessageClients_clients            :: [Client] -- all clients in the game
                          , _SMessageClients_index              :: Int }    -- receivers client is at this index of the list
 
-    | SMessageRoundStart { _SMessageRoundStart_numberOfPlayers :: Int
-                         , _SMessageRoundStart_startBall       :: Ball }
+    | SMessageRoundStart { _SMessageRoundStart_world           :: World
+                         , _SMessageRoundStart_time            :: NominalDiffTime }
 
     | SMessageRoundEnd
 
     -- broadcasts the state of the ball everytime it bounces of a wall 
     | SMessageBall    { _SMessageBall_ball         :: Ball }
+    deriving (Show)
+makeLenses ''Message
+deriveJSON defaultOptions ''Message
+
+
+
+
+
 
     -----------------------
 
@@ -100,31 +138,6 @@ data Message =
     -- current position through the network
     {-| MessagePaddle   { _MessagePaddle_nr        :: Int-}
                       {-, _MessagePaddle_pos       :: (NominalDiffTime, Float, Float) }-}
-    deriving (Show)
 
     {-| MessageUnknown -}
-makeLenses ''Message
-deriveJSON defaultOptions ''Message
 
-
------------------------------------
-
-
--- receive messages on an established connection and call the
--- handler on them
--- TODO: maybe wrap into ErrorT monad
-getMessageAndHandle :: Show a => MVar a -> Handle -> MessageHandler a -> IO ()
-getMessageAndHandle mEnv handle handler = do
-    result :: Either IOException () <-
-        try $ whileM_ (not <$> hIsEOF handle) $ do
-            maybeMessage <- getMessage handle
-            case maybeMessage of
-                Just msg -> do
-                    modifyMVarStateT mEnv $ do
-                        msgs <- runHandler handle msg handler
-                        liftIO $ putMessages msgs
-                Nothing -> do
-                    putStrLn "WARNING: could not decrypt msg"
-    case result of
-        Left _   -> return ()
-        Right () -> return ()

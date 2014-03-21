@@ -86,12 +86,21 @@ msgHandler :: MessageHandler Env
 msgHandler  = MessageHandler (return ()) handleMessagePure (return ())
 
 handleMessagePure :: MessageHandlerPure Env
-handleMessagePure _ msg = do
-    case msg of
+handleMessagePure _ message = do
+    case message of
+
+        MessageTime t -> do
+            env_timer %= CTimer.serverUpdate (MessageTime t)
+            return []
 
         SMessageClients clients idx -> do
             env_clients  .= clients
             env_playerId .= (clients !! idx)^.cl_playerId
+            return []
+
+        SMessageRoundStart world time -> do
+            env_world .= world
+            env_timer %= setReferenceTime time
             return []
 
         -- the world has changed, adapt local env/world to changes
@@ -125,9 +134,6 @@ handleMessagePure _ msg = do
             {-return []-}
 
         
-        {-MessageTime t -> do-}
-            {-env_timer %= CTimer.serverUpdate (MessageTime t)-}
-            {-return []-}
         
 
         {--- receive ball update-}
@@ -148,9 +154,8 @@ handleMessagePure _ msg = do
             {-return []-}
 
 
-        _ -> error "Error: Client.handleMessage"
-            
-
+        _ -> do 
+            error $ "Client.handleMessagePure: no handler for this message: \n" ++ (show message)
 
 
 {-appendPaddlePos :: Int -> (NominalDiffTime, Float, Float) -> Env -> Env-}
@@ -214,7 +219,7 @@ start = do
         {-let walls = (fst $ Wall.initArena 5 1 10)-}
         {-env_world._extraWalls .= walls-}
         --TODO
-        env_world .= initWorld 5
+        env_world .= initEmptyWorld
 
  
 

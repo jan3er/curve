@@ -119,13 +119,15 @@ handleMessagePure handle message = do
     {-(\nr -> (view scl_handle $ clientFromNr nr (env^.env_clientMap), msg ))-}
     {-<$> (connectedClientsNr (env^.env_clientMap))-}
     
-
 -------------------------------------------------------------------------------
--- functions with env ---------------------------------------------------------
+-- message creation -----------------------------------------------------------
 -------------------------------------------------------------------------------
 
-getSMessageClients :: Env -> [(Handle, Message)]
-getSMessageClients env =
+-- TODO make some higherorder function
+-- blub :: (handle -> idx -> env -> message) -> env -> [(handle, message)]
+
+createSMessageClients :: Env -> [(Handle, Message)]
+createSMessageClients env =
     let clientHandles = env^.env_clients
         makeMessage clientHandle idx = 
             ( clientHandle^.clh_handle
@@ -134,6 +136,23 @@ getSMessageClients env =
               , _SMessageClients_clients = ((view clh_client) <$> clientHandles)  }
             )
     in zipWith makeMessage clientHandles [0..]
+
+
+createSMessageRoundStart :: Env -> [(Handle, Message)]
+createSMessageRoundStart env =
+    let handles   = view clh_handle <$> env^.env_clients
+        {-startBall = currentBall $ env^.env_world^._balls -}
+        {-noPlayers = length      $ env^.env_world^._players-}
+        {-message   = SMessageRoundStart-}
+            {-{ _SMessageRoundStart_numberOfPlayers = noPlayers-}
+            {-, _SMessageRoundStart_startBall       = startBall }-}
+        message = SMessageRoundStart (env^.env_world) (getTime $ env^.env_timer)
+    in zip handles (repeat message)
+        
+
+-------------------------------------------------------------------------------
+-- functions with env ---------------------------------------------------------
+-------------------------------------------------------------------------------
 
 
 addClient :: String -> Handle -> State Env ()
@@ -214,7 +233,7 @@ acceptClient mEnv handle handler = do
                 throwError "trying to add client while game is already running"
             else do 
                 lift (addClient nick handle)
-                getSMessageClients <$> get
+                createSMessageClients <$> get
 
     -- broadcast the changed client list
     liftIO $ putMessages msgsJoin
@@ -225,7 +244,7 @@ acceptClient mEnv handle handler = do
     -- remove the client afterwards
     msgsLeave <- liftIO $ modifyMVarState mEnv $ do
         removeClient handle
-        getSMessageClients <$> get
+        createSMessageClients <$> get
     liftIO $ putMessages msgsLeave
 
     
@@ -236,15 +255,22 @@ acceptClient mEnv handle handler = do
 
 startRound :: MVar Env -> IO ()
 startRound mEnv = do
+    putStrLn "=> startRound"
 
-    message <- withMVar mEnv $ evalStateT $ do
-        number <- length <$> (use $ env_world . _players)
-        ball   <- head   <$> (use $ env_world . _balls)
-        return SMessageRoundStart
-            { _SMessageRoundStart_numberOfPlayers = number
-            , _SMessageRoundStart_startBall       = ball }
+    -- add some arbitrary number of players
+    modifyMVarState mEnv $ do
+        env_world .= initWorld 5
 
-    return ()
+    -- inform the clients that the game starts
+    putMessages =<< withMVar mEnv (return . createSMessageRoundStart)
+    
+    -- reset the timer
+    modifyMVarState mEnv $ do
+         env_timer %= \timer -> setReferenceTime (getTime timer) timer
+
+    _<- forkIO $ ballHandler mEnv
+
+    putStrLn "=> end startRound" 
 
 
 {-endRound-}
@@ -259,14 +285,17 @@ simpleKeyboardHandler :: MVar Env -> IO ()
 simpleKeyboardHandler mEnv = forever $ do
     line <- getLine
     modifyMVarStateT mEnv $ case line of
-        "toggle" -> do
-            liftIO $ putStrLn "toggleIsRunning"
-            env_isRunning %= not
+        {-"toggle" -> do-}
+            {-liftIO $ putStrLn "toggleIsRunning"-}
+            {-env_isRunning %= not-}
             --TODOa
             {-list <- getWorldBroadcast <$> get-}
             {-liftIO $ putMessages list -}
         "env" -> do
             liftIO . putStrLn =<<  show <$> get
+        "s" -> do
+            _<- liftIO $ forkIO $ startRound mEnv
+            return ()
         _ -> do
             liftIO $ putStrLn "unknown command"
 
@@ -280,12 +309,6 @@ start = withSocketsDo $ do
                  (MessageHandler handleMessagePre handleMessagePure handleMessagePost)
     _<- forkIO $ simpleKeyboardHandler mEnv
 
-
-
-    modifyMVar_ mEnv $ execStateT $ do
-        {-let walls = (fst $ Wall.initArena 5 1 10)-}
-        {-env_world._extraWalls .= walls-}
-        env_world .= initWorld 5
 
     {-_<- forkBallHandler mEnv-}
 
@@ -307,8 +330,8 @@ stepEnv = do
 
 
 
-forkBallHandler :: MVar Env -> IO ThreadId
-forkBallHandler mEnv = forkIO $ forever $ do
+ballHandler :: MVar Env -> IO ()
+ballHandler mEnv = forever $ do
 
 
     modifyMVar_ mEnv $ execStateT stepEnv

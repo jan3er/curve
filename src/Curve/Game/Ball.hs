@@ -34,13 +34,13 @@ deriveJSON defaultOptions ''Ball
 
 -----------------------------------
 
-newBall :: Ball
-newBall = Ball
+someRandomBall :: Ball
+someRandomBall = Ball
     0
-    (M.mkVec3 0 3 0)
+    (M.mkVec3 0 0 0)
     (M.normalize $ M.mkVec3 1 1 0)
-    (M.mkVec3 0 20 0)
-    20
+    (M.mkVec3 0 0 0)
+    2
     0.3
 
 -------------------------------------------------------------------------------

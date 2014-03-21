@@ -6,7 +6,10 @@ module Curve.Game.Paddle where
 import qualified Data.List as L
 import Data.List
 import Data.Time
+import Data.Aeson.TH
 import Control.Lens
+
+import Curve.Game.Network()
 
 -------------------------
 
@@ -16,6 +19,7 @@ data Paddle = Paddle {
       __positions :: [Entry]
     } deriving Show
 makeLenses ''Paddle
+deriveJSON defaultOptions ''Paddle
 
 -------------------------
 

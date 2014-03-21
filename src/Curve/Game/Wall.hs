@@ -4,15 +4,16 @@
 
 module Curve.Game.Wall where
 
-import           Prelude hiding (init)
-import           Data.Maybe
-{-import           Data.List hiding (init)-}
-{-import           Data.Time-}
-{-import           Debug.Trace-}
-import           Control.Lens
-import           Control.Applicative
+import Prelude hiding (init)
+import Data.Maybe
+import Data.Aeson.TH
+{-import Data.List hiding (init)-}
+{-import Data.Time-}
+{-import Debug.Trace-}
+import Control.Lens
+import Control.Applicative
 
-import           Curve.Game.Math as M
+import Curve.Game.Math as M
 
 -----------------------------------
 
@@ -28,6 +29,7 @@ data Wall = Wall
     , __dimensions    :: (Float, Float)
     } deriving Show
 makeLenses ''Wall
+deriveJSON defaultOptions ''Wall
 
 
 -------------------------------------------------------------------------------
@@ -74,7 +76,7 @@ initWall :: Vec3 Float -> Vec3 Float -> Vec3 Float -> (Float, Float) -> Wall
 initWall normal updir center dimensions = Wall
     { __normal        = M.normalize normal
     , __updir         = M.normalize updir
-    , __center        = M.normalize center
+    , __center        = center
     , __dimensions    = dimensions } 
 
 

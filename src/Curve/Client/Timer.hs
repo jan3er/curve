@@ -33,7 +33,7 @@ data CTimer = CTimer
 makeLenses ''CTimer
 
 queryInterval :: Float
-queryInterval = 2
+queryInterval = 1
 
 ----------------------------------------
 
@@ -65,7 +65,7 @@ serverUpdate (MessageTime t) timer =
 serverUpdate _ _ = error "Timer.update: wrong Message"
 
 
--- update the internal time of the timer and maybe get message to be sent to server
+-- update the internal time of the timer and maybe send a message to the server
 ioUpdate :: CTimer -> IO CTimer
 ioUpdate = execStateT $ do
     currentTime <- liftIO $ getCurrentTime
@@ -83,6 +83,6 @@ ioUpdate = execStateT $ do
             return ()
 
 
--- get the game-time
 instance Timer CTimer where
     getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)
+    setReferenceTime t = _referenceTime %~ addUTCTime t

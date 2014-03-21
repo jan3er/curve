@@ -7,8 +7,8 @@ import Control.Lens
 {-import Control.Applicative-}
 import Control.Monad.State
 import Control.Applicative
+import Data.Aeson.TH
 import Data.Time
-{-import Data.Tuple-}
 import Data.Maybe
 import Safe
 
@@ -26,6 +26,7 @@ data GameStatus = Running
                 | NotRunning
                 | IDonwKnow
     deriving Show
+deriveJSON defaultOptions ''GameStatus
 
 data World = World
     { __currentTime  :: NominalDiffTime 
@@ -35,6 +36,7 @@ data World = World
     , __gameStatus   :: GameStatus
     } deriving Show
 makeLenses ''World
+deriveJSON defaultOptions ''World
 
 -------------------------------------------------------------------------------
 -- initialization -------------------------------------------------------------
@@ -55,7 +57,7 @@ initWorld noPlayers =
     let (playerWalls, extraWalls) = initArena noPlayers
     in World
     { __currentTime  = 0
-    , __balls        = []
+    , __balls        = [someRandomBall]
     , __extraWalls   = extraWalls
     , __players      = initPlayer <$> playerWalls
     , __gameStatus   = IDonwKnow }

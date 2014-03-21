@@ -13,9 +13,9 @@ import Curve.Game.Timer
 
 data STimer = STimer
     -- the local time at the moment the server initialized its time
-    { _referenceTime    :: UTCTime  
+    { __referenceTime    :: UTCTime  
     -- the current local Time
-    , _localCurrentTime :: UTCTime 
+    , __localCurrentTime :: UTCTime 
     } deriving Show
 makeLenses ''STimer
 
@@ -31,8 +31,8 @@ initTimer = do
 ioUpdate :: STimer -> IO STimer
 ioUpdate = execStateT $ do
     currentTime <- liftIO $ getCurrentTime
-    localCurrentTime .= currentTime
+    _localCurrentTime .= currentTime
 
--- get the game-time
 instance Timer STimer where
-    getTime timer = diffUTCTime (timer^.localCurrentTime) (timer^.referenceTime)
+    getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)
+    setReferenceTime t = _referenceTime %~ addUTCTime t

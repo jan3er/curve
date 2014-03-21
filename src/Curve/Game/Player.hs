@@ -4,7 +4,8 @@
 module Curve.Game.Player where
 
 import Data.Maybe
-import Data.List 
+import Data.List
+import Data.Aeson.TH
 
 import qualified Curve.Game.Math as M
 
@@ -19,6 +20,7 @@ data Player = Player
     , __paddle :: Paddle
     } deriving Show
 makeLenses ''Player
+deriveJSON defaultOptions ''Player
 
 --------------------------------
 
