@@ -26,7 +26,7 @@ data Wall = Wall
     -- the render or the wall
     , __center        :: Vec3 Float
     -- (width, height) max distance from center
-    , __dimensions    :: (Float, Float)
+    , __dimension     :: (Float, Float)
     } deriving Show
 makeLenses ''Wall
 deriveJSON defaultOptions ''Wall
@@ -77,20 +77,25 @@ initWall normal updir center dimensions = Wall
     { __normal        = M.normalize normal
     , __updir         = M.normalize updir
     , __center        = center
-    , __dimensions    = dimensions } 
+    , __dimension     = dimensions } 
 
 
 -- returns true iff the orthogonal projection of ip into the wall's plane is within the wall's dimensions
-isInRectangle :: Wall -> Vec3 Float -> Bool
-{-isInRectangle _ _ = True-}
-isInRectangle wall ip =
+isWithinBounds :: Wall -> Vec3 Float -> Bool
+isWithinBounds wall ip =
+    let (x, y) = convertToWallSpace wall ip
+    in (abs x < 1) && (abs y < 1)
+
+-- the range [-1,1]x[-1,1] covers the area of the wall
+convertToWallSpace :: Wall -> Vec3 Float -> (Float, Float)
+convertToWallSpace wall ip =
     let matrix        = fromJust $ M.invert $ M.mkVec3
                         (wall^._normal)
                         ((wall^._normal) `M.cross` (wall^._updir))
                         (wall^._updir)
         (_:.y:.z:.()) = matrix `M.multmv` (ip -. (wall^._center))
-        (width, height)  = wall^._dimensions
-    in (abs y < width) && (abs z < height)
+        (width, height)  = wall^._dimension 
+    in (y/width, z/height)
 
 
 

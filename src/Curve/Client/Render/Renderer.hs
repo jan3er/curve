@@ -205,7 +205,7 @@ fooDrawMyVao s modelMatrix vao = do
 -- calculate transformation matrix to display a wall 
 wallTransformationMatrix :: Wall -> Mat44 Float
 wallTransformationMatrix wall =
-    let (width, height) = wall^._dimensions
+    let (width, height) = wall^.Wall._dimension
         scaleMat        = (M.mkVec4 width height 1 1) `M.scale` M.identity
         rotMat          = M.from33to44 $ fromJust $ M.invert $ 
                           M.mkVec3 ((wall^._updir) `M.cross` (wall^._normal)) (wall^._updir) (wall^._normal)

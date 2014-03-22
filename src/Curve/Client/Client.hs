@@ -103,6 +103,10 @@ handleMessagePure _ message = do
             env_timer %= setReferenceTime time
             return []
 
+        SMessageBall ball -> do
+            env_world._balls %= addBall ball
+            return []
+
         -- the world has changed, adapt local env/world to changes
         {-SMessageWorld clients myNr isRunning -> do-}
 
@@ -136,7 +140,7 @@ handleMessagePure _ message = do
         
         
 
-        {--- receive ball update-}
+
         {-SMessageBall { _SMessageBall_referenceTime = referenceTime-}
                  {-, _SMessageBall_position      = position-}
                  {-, _SMessageBall_direction     = direction-}

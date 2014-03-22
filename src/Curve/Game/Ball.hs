@@ -16,6 +16,8 @@ import qualified Curve.Game.Math as M
 import Curve.Game.Math hiding (map, maximum, zipWith, head)
 
 import Curve.Game.Wall as Wall
+import Curve.Game.Paddle as Paddle
+import Curve.Game.Player as Player
 
 import Curve.Game.Network()
 
@@ -40,7 +42,7 @@ someRandomBall = Ball
     (M.mkVec3 0 0 0)
     (M.normalize $ M.mkVec3 (-1) 1 0)
     (M.mkVec3 0 0 0)
-    2
+    10
     0.3
 
 -------------------------------------------------------------------------------
@@ -67,28 +69,49 @@ positionAtTime  t ball =
     + M.map (deltaT*)        ((ball^._direction) *. (ball^._speed))
     + M.map (deltaT*deltaT*) (ball^._acceleration)
 
------------------------------------
+-------------------------------------------------------------------------------
+-- Bouncing off ---------------------------------------------------------------
+-------------------------------------------------------------------------------
 
--- reflect the ball before the wall
-reflect :: Wall -> NominalDiffTime -> Ball -> Ball
-reflect wall t ball=
-
-    let deltaT        = realToFrac $ t - ball^._referenceTime
+bounceOffWall :: Wall -> NominalDiffTime -> Ball -> Ball
+bounceOffWall wall t ball =
+    let 
+        deltaT        = realToFrac $ t - ball^._referenceTime
         oldVelocity   = ((ball^._direction)    *. (ball^._speed))
                       + ((ball^._acceleration) *. deltaT)
         dotProduct    = oldVelocity `dot` (wall^._normal)
         newDirection  = M.normalize (oldVelocity -. ((wall^._normal) *. (2*dotProduct)))
-        newPosition   = projectBeforeWall wall (positionAtTime t ball) (ball^._size)
-    in
-    Ball 
-    { __referenceTime = t
-    , __position      = newPosition
-    , __direction     = newDirection
-    , __acceleration  = (ball^._acceleration)
-    , __speed         = (ball^._speed) 
-    , __size          = (ball^._size) }
-    
------------------------------------
+        newPosition   = projectBeforeWall 
+                            wall 
+                            (Curve.Game.Ball.positionAtTime t ball) 
+                            (ball^._size)
+    in Ball 
+        { __referenceTime = t
+        , __position      = newPosition
+        , __direction     = newDirection
+        , __acceleration  = (ball^._acceleration)
+        , __speed         = (ball^._speed) 
+        , __size          = (ball^._size) }
+
+
+bounceOffPlayer:: Player -> NominalDiffTime -> Ball -> Maybe Ball
+bounceOffPlayer player t ball =
+    let 
+        reflectedBall     = bounceOffWall (player^._wall) t ball
+        (paddleX,paddleY) = paddlePosAtTime t (player^._paddle)
+        (ballX,ballY)     = convertToWallSpace (player^._wall) (reflectedBall^._position)
+        (sizeX,sizeY)     = player^._paddle^.Paddle._dimension
+    in 
+        if (abs $ paddleX - ballX) < sizeX && (abs $ paddleY - ballY) < sizeY
+        then Just reflectedBall
+        -- TODO
+        {-else Nothing-}
+        else Just reflectedBall
+
+-------------------------------------------------------------------------------
+-- Intersection ---------------------------------------------------------------
+-------------------------------------------------------------------------------
+
 
 -- get the wall the ball touches next
 intersectList :: Ball -> [(Wall, a)] -> (NominalDiffTime, a)
@@ -101,10 +124,6 @@ intersectList ball walls =
         [] -> error "Curve.Game.Wall intersectionList: the ball touched no wall!"
         xs -> minimumBy (\a b -> compare (a^._1) (b^._1)) xs
 
-
--------------------------------------------------------------------------------
--- intersection with single walls ---------------------------------------------
--------------------------------------------------------------------------------
 
 -- get the moment of intersection with this wall 
 momentOfIntersection :: Ball -> Wall -> Maybe NominalDiffTime

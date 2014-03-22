@@ -19,6 +19,7 @@ import Curve.Game.Ball
 import Curve.Game.Wall
 import Curve.Game.Player
 import Curve.Game.Timer
+import Curve.Game.Paddle as Paddle
 
 ---------------------------------------
 
@@ -96,17 +97,26 @@ nextImpact world =
        (playerWalls ++ extraWalls)
              
 
---TODO (this comes next)
---two methods:
---  -to be called at the moment of impact to check the paddle pos
---  -to be called to get the next ball
---  (should be generic enough for server and client)
-foo :: World -> ()
-foo world =
-    let
-        (momentOfImpact, (wall, maybePlayerId)) = nextImpact world
-    in
-        ()
+
+-- to be called 
+--    - by server, once the paddle pos for a given time has arrived
+--      to broadcast the real world state
+--    - by client to get an approx world state (everytime new info arrives)
+mainWorldMethod :: World -> (Bool, Either Int Ball)
+mainWorldMethod world = case maybePlayerId of
+    Nothing ->
+        (True, Right $ bounceOffWall wall t ball)
+
+    Just playerId ->
+        let player     = ((world^._players) !! playerId)
+            isCertain  = isCertainAtTime t (player^._paddle)
+            eitherBall = case (bounceOffPlayer player t ball) of
+                Nothing   -> Left playerId
+                Just b    -> Right b
+        in (isCertain, eitherBall)
+  where 
+    ball = (currentBall (world^._balls))
+    (t,(wall,maybePlayerId)) = nextImpact world
 
 
 
@@ -149,12 +159,12 @@ foo world =
     
     provides following information
         - moment of impact
-        - uncertain ball | reflected ball | dropped nr
+        - uncertain/certain ball/dropId
 
     need following information
         - walls (with maybe id)
         - paddle positions
-        - some sort of time, maybe the currentball just is enough (TODO)
+        - the last ball that is certain
 
  
     mainWorldMethod :: time -> (wall at time, or deduce from time) -> 

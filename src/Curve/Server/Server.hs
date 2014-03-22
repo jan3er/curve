@@ -149,6 +149,11 @@ createSMessageRoundStart env =
         message = SMessageRoundStart (env^.env_world) (getTime $ env^.env_timer)
     in zip handles (repeat message)
         
+createSMessageBall :: Env -> [(Handle, Message)]
+createSMessageBall env = 
+    let handles   = view clh_handle <$> env^.env_clients
+        message = SMessageBall $ last (env^.env_world^._balls)
+    in zip handles (repeat message)
 
 -------------------------------------------------------------------------------
 -- functions with env ---------------------------------------------------------
@@ -342,7 +347,6 @@ start = withSocketsDo $ do
     {-updateTimer-}
 
 
-
 ballHandler :: MVar Env -> IO ()
 ballHandler mEnv = forever $ do
 
@@ -350,28 +354,26 @@ ballHandler mEnv = forever $ do
     -- update timer
     modifyMVar_ mEnv $ execStateT updateEnv
 
+    
     env <- readMVar mEnv
-
-    let ball  = currentBall (env^.env_world^._balls)
-
     let currentTime = getTime (env^.env_timer)
+    let (isCertain, eitherBall) = mainWorldMethod (env^.env_world)
 
-    let (intersectTime, (wall, maybePlayerId)) = nextImpact (env^.env_world)
+    putStrLn $ "isCertain " ++ show isCertain
+    putStrLn $ "eitherBall " ++ show eitherBall
 
-    putStrLn $ "currentTime " ++ show currentTime
-    putStrLn $ "intersectTime " ++ show intersectTime
-    putStrLn $ "ball " ++ show ball
-    putStrLn $ "reflectAt " ++ show wall
-    putStrLn $ "maybePlayerId " ++ show maybePlayerId
+    let ball = case eitherBall of
+            Left _  -> error "asdfasdlhasfdkjhaf"
+            Right b -> b
 
-    {-let (intersectTime,(wall,wallIdx :: Int)) = intersectList ball (zip walls (zip walls [0..]))-}
+    let intersectTime = ball^.Ball._referenceTime
 
-    let reflectedBall = reflect wall intersectTime ball
-    modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))
+    modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall ball))
 
-    --TODOa
-    {-putMessages . getBallBroadcast =<< readMVar mEnv-}
+    putMessages . createSMessageBall =<< readMVar mEnv
 
+    -- sleep until next intersection
     threadDelay $ floor $ 1000000 * (intersectTime - currentTime)
 
     return ()
+
