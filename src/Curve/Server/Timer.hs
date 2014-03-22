@@ -27,12 +27,12 @@ initTimer = do
     t <- getCurrentTime
     return $ STimer t t
 
--- update the internal time of the timer
-ioUpdate :: STimer -> IO STimer
-ioUpdate = execStateT $ do
-    currentTime <- liftIO $ getCurrentTime
-    _localCurrentTime .= currentTime
-
 instance Timer STimer where
+
     getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)
+
     setReferenceTime t = _referenceTime %~ addUTCTime t
+
+    ioUpdate = execStateT $ do
+        currentTime <- liftIO $ getCurrentTime
+        _localCurrentTime .= currentTime

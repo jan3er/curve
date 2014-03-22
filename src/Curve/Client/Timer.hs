@@ -65,24 +65,24 @@ serverUpdate (MessageTime t) timer =
 serverUpdate _ _ = error "Timer.update: wrong Message"
 
 
--- update the internal time of the timer and maybe send a message to the server
-ioUpdate :: CTimer -> IO CTimer
-ioUpdate = execStateT $ do
-    currentTime <- liftIO $ getCurrentTime
-    _localCurrentTime .= currentTime
-
-    timer <- get
-    let diff :: Float = realToFrac $ diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery)
-    if ((diff >= queryInterval) && not (timer^._waitForResp))
-        then do
-            _waitForResp    .= True
-            _localLastQuery .= currentTime
-            liftIO $ putMessage (timer^._handle) (MessageTime 0)
-            return ()
-        else do
-            return ()
 
 
 instance Timer CTimer where
     getTime timer = diffUTCTime (timer^._localCurrentTime) (timer^._referenceTime)
     setReferenceTime t = _referenceTime %~ addUTCTime t
+
+    -- update the internal time of the timer and maybe send a message to the server
+    ioUpdate = execStateT $ do
+        currentTime <- liftIO $ getCurrentTime
+        _localCurrentTime .= currentTime
+
+        timer <- get
+        let diff :: Float = realToFrac $ diffUTCTime (timer^._localCurrentTime) (timer^._localLastQuery)
+        if ((diff >= queryInterval) && not (timer^._waitForResp))
+            then do
+                _waitForResp    .= True
+                _localLastQuery .= currentTime
+                liftIO $ putMessage (timer^._handle) (MessageTime 0)
+                return ()
+            else do
+                return ()

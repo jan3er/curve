@@ -40,7 +40,7 @@ import Curve.Game.Timer
 -------------------------------------------------------------------------------
 
 handleMessagePre :: MessageHandlerPre Env
-handleMessagePre = assign env_timer =<< liftIO . Timer.ioUpdate =<< use env_timer
+handleMessagePre = updateEnv
 
 handleMessagePost :: MessageHandlerPost Env
 handleMessagePost = return ()
@@ -172,6 +172,16 @@ removeClient handle = do
     env_clients %= filter ((/=) handle . view clh_handle)
 
 
+updateEnv :: StateT Env IO ()
+updateEnv = do 
+    timer <- liftIO . ioUpdate =<< use env_timer
+    env_timer .= timer
+    env_world %= updateWorld timer
+
+    {-modifyMVar_ mEnv $ execStateT (env_world %= updateWorld (env^.env_timer))-}
+    {-update :: (Timer t) => t -> World -> World-}
+
+
 -------------------------------------------------------------------------------
 -- connection handling --------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -257,6 +267,9 @@ startRound :: MVar Env -> IO ()
 startRound mEnv = do
     putStrLn "=> startRound"
 
+    -- update the env
+    modifyMVarStateT mEnv updateEnv
+
     -- add some arbitrary number of players
     modifyMVarState mEnv $ do
         env_world .= initWorld 5
@@ -324,9 +337,9 @@ start = withSocketsDo $ do
 
 
 
-stepEnv :: StateT Env IO ()
-stepEnv = do
-    assign env_timer =<< liftIO . ioUpdate =<< use env_timer
+{-stepEnv :: StateT Env IO ()-}
+{-stepEnv = do-}
+    {-updateTimer-}
 
 
 
@@ -334,16 +347,24 @@ ballHandler :: MVar Env -> IO ()
 ballHandler mEnv = forever $ do
 
 
-    modifyMVar_ mEnv $ execStateT stepEnv
+    -- update timer
+    modifyMVar_ mEnv $ execStateT updateEnv
+
     env <- readMVar mEnv
 
-    modifyMVar_ mEnv $ execStateT (env_world %= update (env^.env_timer))
-
-    let walls = env^.env_world^._extraWalls
-    let ball  = last (env^.env_world^._balls)
+    let ball  = currentBall (env^.env_world^._balls)
 
     let currentTime = getTime (env^.env_timer)
-    let (intersectTime,(wall,wallIdx :: Int)) = intersectList ball (zip walls (zip walls [0..]))
+
+    let (intersectTime, (wall, maybePlayerId)) = nextImpact (env^.env_world)
+
+    putStrLn $ "currentTime " ++ show currentTime
+    putStrLn $ "intersectTime " ++ show intersectTime
+    putStrLn $ "ball " ++ show ball
+    putStrLn $ "reflectAt " ++ show wall
+    putStrLn $ "maybePlayerId " ++ show maybePlayerId
+
+    {-let (intersectTime,(wall,wallIdx :: Int)) = intersectList ball (zip walls (zip walls [0..]))-}
 
     let reflectedBall = reflect wall intersectTime ball
     modifyMVar_ mEnv $ execStateT ((env_world._balls) %= (addBall reflectedBall))
@@ -352,6 +373,5 @@ ballHandler mEnv = forever $ do
     {-putMessages . getBallBroadcast =<< readMVar mEnv-}
 
     threadDelay $ floor $ 1000000 * (intersectTime - currentTime)
-    putStrLn $ "bounce at wall " ++ (show wallIdx)
 
     return ()

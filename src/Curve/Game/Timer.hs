@@ -12,5 +12,5 @@ class Timer a where
     getTime :: a -> NominalDiffTime
     -- to be called at the beginning of a round
     setReferenceTime :: NominalDiffTime -> a -> a
-
-    --TODO: maybe ioUpdate :: Timer -> IO Timer
+    -- update the internal time of the timer
+    ioUpdate :: a -> IO a

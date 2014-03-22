@@ -68,11 +68,10 @@ initWorld noPlayers =
 
 
 -- to be called imedeately before stuff
-update :: (Timer t) => t -> World -> World
-update timer = execState $ do
+updateWorld :: (Timer t) => t -> World -> World
+updateWorld timer = execState $ do
     _currentTime .= getTime timer
     _balls       %= truncBalls (getTime timer)
-
     where
     --drop all balls that are no longer relevant
     truncBalls :: NominalDiffTime -> [Ball] -> [Ball]
@@ -86,7 +85,7 @@ update timer = execState $ do
 
 nextImpact :: World -> (NominalDiffTime, (Wall, Maybe Int))
 nextImpact world =
-    let playerWalls  = zipWith (\nr wall -> (wall,(wall,Just nr))) [0..]
+    let playerWalls  = zipWith (\playerId wall -> (wall,(wall,Just playerId))) [0..]
                      . map (view _wall)
                      $ (world^._players)
 
@@ -105,7 +104,7 @@ nextImpact world =
 foo :: World -> ()
 foo world =
     let
-        (momentOfImpact, (wall, maybeNr)) = nextImpact world
+        (momentOfImpact, (wall, maybePlayerId)) = nextImpact world
     in
         ()
 

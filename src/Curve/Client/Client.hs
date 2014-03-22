@@ -192,8 +192,11 @@ mouseInput = do
 
 
 -- keep timer up to date and in sync
-updateTimer :: StateT Env IO ()
-updateTimer = assign env_timer =<< liftIO . CTimer.ioUpdate =<< use env_timer
+updateEnv :: StateT Env IO ()
+updateEnv = do 
+    timer <- liftIO . ioUpdate =<< use env_timer
+    env_timer .= timer
+    env_world %= updateWorld timer
 
 initGL :: IO Resources 
 initGL = do
@@ -240,13 +243,9 @@ stepEnv = do
     windowResize
 
     -- keep timer up to date and in sync
-    updateTimer
+    updateEnv
 
     -- delete all but the last three paddle positions
     {-env_world._playerMap.mapped._paddle  %= Paddle.clamp-}
 
-    -- get the latest ball
-    timer <- use env_timer
-    env_world %= update timer
-    
     return ()
